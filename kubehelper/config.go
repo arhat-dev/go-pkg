@@ -108,7 +108,7 @@ type LeaderElectionConfig struct {
 	} `json:"lock" yaml:"lock"`
 }
 
-func (c *LeaderElectionConfig) RunOrDie(appCtx context.Context, name string, logger *log.Logger, kubeClient kubernetes.Interface, onElected func(context.Context), onEjected func()) {
+func (c *LeaderElectionConfig) RunOrDie(appCtx context.Context, name string, logger log.Interface, kubeClient kubernetes.Interface, onElected func(context.Context), onEjected func()) {
 	// become the leader before proceeding
 	evb := record.NewBroadcaster()
 	_ = evb.StartLogging(func(format string, args ...interface{}) {
@@ -166,7 +166,7 @@ type ControllerMetricsConfig struct {
 	TLS confhelper.TLSConfig `json:"tls" yaml:"tls"`
 }
 
-func (c *ControllerMetricsConfig) RegisterIfEnabled(ctx context.Context, logger *log.Logger) (err error) {
+func (c *ControllerMetricsConfig) RegisterIfEnabled(ctx context.Context, logger log.Interface) (err error) {
 	if !c.Enabled {
 		return nil
 	}
@@ -339,7 +339,7 @@ func (c *ControllerTracingConfig) newHttpClient(tlsConfig *tls.Config) *http.Cli
 	}
 }
 
-func (c *ControllerTracingConfig) RegisterIfEnabled(ctx context.Context, logger *log.Logger) (err error) {
+func (c *ControllerTracingConfig) RegisterIfEnabled(ctx context.Context, logger log.Interface) (err error) {
 	if !c.Enabled {
 		return nil
 	}

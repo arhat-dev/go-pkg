@@ -89,13 +89,13 @@ func (h *HandleFuncs) replaceNilFuncWithAlwaysSuccess() *HandleFuncs {
 
 func NewReconciler(
 	ctx context.Context,
-	name string,
+	logger log.Interface,
 	informer kubecache.SharedInformer,
 	h *HandleFuncs,
 ) *Reconciler {
 	r := &Reconciler{
 		ctx: ctx,
-		log: log.Log.WithName(name),
+		log: logger,
 
 		rescheduleQ: queue.NewTimeoutQueue(),
 		jobQ:        queue.NewWorkQueue(),
@@ -122,7 +122,7 @@ func NewReconciler(
 
 type Reconciler struct {
 	ctx context.Context
-	log *log.Logger
+	log log.Interface
 
 	rescheduleQ *queue.TimeoutQueue
 	jobQ        *queue.WorkQueue
