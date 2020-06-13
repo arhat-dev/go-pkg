@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	DefaultLogTimeLayout = time.RFC3339Nano
+	TimeLayout = time.RFC3339Nano
 )
 
 var (
@@ -87,7 +87,7 @@ func getEncoder(format string) zapcore.Encoder {
 	switch format {
 	case "json":
 		encoderConfig.EncodeTime = func(t time.Time, encoder zapcore.PrimitiveArrayEncoder) {
-			encoder.AppendString(t.UTC().Format(DefaultLogTimeLayout))
+			encoder.AppendString(t.UTC().Format(TimeLayout))
 		}
 
 		return zapcore.NewJSONEncoder(encoderConfig)
@@ -95,7 +95,7 @@ func getEncoder(format string) zapcore.Encoder {
 		fallthrough
 	default:
 		encoderConfig.EncodeTime = func(t time.Time, encoder zapcore.PrimitiveArrayEncoder) {
-			encoder.AppendString(fmt.Sprintf("%-27s", t.UTC().Format(DefaultLogTimeLayout)))
+			encoder.AppendString(fmt.Sprintf("%-27s", t.UTC().Format(TimeLayout)))
 		}
 		return zapcore.NewConsoleEncoder(encoderConfig)
 	}

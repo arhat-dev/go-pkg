@@ -55,6 +55,10 @@ var (
 	Duration   = zap.Duration
 )
 
+func StringError(err string) Field {
+	return String("error", err)
+}
+
 var (
 	bufferPool      = buffer.NewPool()
 	_stacktracePool = sync.Pool{

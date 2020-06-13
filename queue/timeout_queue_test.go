@@ -55,7 +55,10 @@ func BenchmarkTimeoutQueue(b *testing.B) {
 }
 
 func TestTimeoutQueue(t *testing.T) {
-	cmd := make(map[string]string)
+	const (
+		value = 0
+	)
+
 	ctx, cancel := context.WithCancel(context.TODO())
 	q := NewTimeoutQueue()
 	q.Start(ctx.Done())
@@ -63,14 +66,30 @@ func TestTimeoutQueue(t *testing.T) {
 	defer func() {
 		cancel()
 
-		_ = q.OfferWithDelay(0, cmd, time.Second)
+		_ = q.OfferWithDelay(0, value, time.Second)
 		assert.Equal(t, 0, len(q.data))
 	}()
 
-	_ = q.OfferWithDelay(0, cmd, time.Second)
 	start := time.Now()
+	assert.NoError(t, q.OfferWithDelay(0, value, -time.Second))
 	<-q.TakeCh()
 	dur := time.Since(start)
+	if dur > time.Second/2 {
+		assert.FailNow(t, "additional wait occurred", "dur %s", dur)
+	}
+
+	start = time.Now()
+	assert.NoError(t, q.OfferWithTime(0, value, time.Now().Add(time.Second)))
+	<-q.TakeCh()
+	dur = time.Since(start)
+	if dur < time.Second/2 {
+		assert.FailNow(t, "wait time not match", "dur %s", dur)
+	}
+
+	_ = q.OfferWithDelay(0, value, time.Second)
+	start = time.Now()
+	<-q.TakeCh()
+	dur = time.Since(start)
 	if dur < time.Second/2 {
 		assert.FailNow(t, "wait time not match", "dur %s", dur)
 	}
@@ -79,7 +98,7 @@ func TestTimeoutQueue(t *testing.T) {
 
 	const N = 100
 	for i := 0; i < N; i++ {
-		_ = q.OfferWithDelay(uint64(i), cmd, time.Duration(i+1)*10*time.Millisecond)
+		_ = q.OfferWithDelay(uint64(i), value, time.Duration(i+1)*10*time.Millisecond)
 	}
 
 	start = time.Now()
@@ -89,7 +108,7 @@ func TestTimeoutQueue(t *testing.T) {
 	}
 
 	for i := 0; i < N; i++ {
-		_ = q.OfferWithDelay(uint64(i), cmd, time.Hour)
+		_ = q.OfferWithDelay(uint64(i), value, time.Hour)
 	}
 
 	deleted := 0
@@ -104,7 +123,7 @@ func TestTimeoutQueue(t *testing.T) {
 	q.Clear()
 
 	for i := 0; i < N; i++ {
-		_ = q.OfferWithDelay(uint64(i), cmd, time.Duration(i)*10*time.Millisecond)
+		_ = q.OfferWithDelay(uint64(i), value, time.Duration(i)*10*time.Millisecond)
 	}
 
 	time.Sleep(time.Second)
@@ -120,15 +139,15 @@ func TestTimeoutQueue(t *testing.T) {
 	}
 
 	for i := 0; i < N; i++ {
-		_ = q.OfferWithDelay(uint64(i), cmd, time.Hour)
+		_ = q.OfferWithDelay(uint64(i), value, time.Hour)
 	}
 
 	assert.Equal(t, N, len(q.data))
 	q.Clear()
 	assert.Equal(t, 0, len(q.data))
 
-	_ = q.OfferWithDelay(0, cmd, time.Second)
-	_ = q.OfferWithDelay(0, cmd, time.Millisecond)
+	_ = q.OfferWithDelay(0, value, time.Second)
+	_ = q.OfferWithDelay(0, value, time.Millisecond)
 	start = time.Now()
 	<-q.TakeCh()
 	dur = time.Since(start)
