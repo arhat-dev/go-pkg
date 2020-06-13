@@ -23,6 +23,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// MarshalED25519PrivateKey to marshal ed25519 private key to openssh format
 func MarshalED25519PrivateKey(key ed25519.PrivateKey) []byte {
 	pk1 := struct {
 		Check1  uint32
@@ -65,7 +66,7 @@ func MarshalED25519PrivateKey(key ed25519.PrivateKey) []byte {
 	w.KdfName = "none"
 	w.KdfOpts = ""
 	w.NumKeys = 1
-	//w.PubKey = append([]byte(ssh.KeyAlgoED25519), ssh.Marshal(struct{ KeyBytes []byte }{KeyBytes: pk1.Pub})...)
+
 	w.PrivKeyBlock = ssh.Marshal(pk1)
 	w.PubKey = ssh.Marshal(struct {
 		Keytype  string

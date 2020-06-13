@@ -23,6 +23,7 @@ import (
 	"sync/atomic"
 )
 
+// Errors for WorkQueue
 var (
 	ErrWorkDuplicate  = errors.New("work duplicated")
 	ErrWorkConflict   = errors.New("work conflicted")
@@ -33,10 +34,15 @@ var (
 type WorkAction uint8
 
 const (
+	// ActionInvalid to do nothing
 	ActionInvalid WorkAction = iota
+	// ActionAdd to add or create some resource
 	ActionAdd
+	// ActionUpdate to update some resource
 	ActionUpdate
+	// ActionDelete to delete some resource
 	ActionDelete
+	// ActionCleanup to eliminate all side effects of the resource
 	ActionCleanup
 )
 
@@ -52,6 +58,7 @@ func (t WorkAction) String() string {
 	return actionNames[t]
 }
 
+// Work item to record action and related resource object
 type Work struct {
 	Action WorkAction
 	Key    interface{}
@@ -86,7 +93,8 @@ func NewWorkQueue() *WorkQueue {
 	}
 }
 
-// WorkQueue
+// WorkQueue is the queue data structure designed to reduce redundant work
+// as much as possible
 type WorkQueue struct {
 	queue []Work
 	index map[Work]int
@@ -122,6 +130,7 @@ func (q *WorkQueue) delete(action WorkAction, key interface{}) {
 	}
 }
 
+// Remains shows what work we are still meant to do
 func (q *WorkQueue) Remains() []Work {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
@@ -133,6 +142,7 @@ func (q *WorkQueue) Remains() []Work {
 	return works
 }
 
+// Find the scheduled work according to its key
 func (q *WorkQueue) Find(key interface{}) (Work, bool) {
 	q.mu.RLock()
 	defer q.mu.RUnlock()

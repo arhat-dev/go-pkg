@@ -21,6 +21,7 @@ import (
 	"sync"
 )
 
+// NewSeqQueue returns a empty SeqQueue
 func NewSeqQueue() *SeqQueue {
 	return &SeqQueue{
 		next: 0,
@@ -35,6 +36,7 @@ type seqData struct {
 	data interface{}
 }
 
+// SeqQueue is the sequence queue for unordered data
 type SeqQueue struct {
 	next uint64
 	max  uint64
@@ -42,6 +44,7 @@ type SeqQueue struct {
 	mu   *sync.Mutex
 }
 
+// Offer an unordered data with its sequence
 func (q *SeqQueue) Offer(seq uint64, data interface{}) (out []interface{}, completed bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -90,6 +93,7 @@ func (q *SeqQueue) Offer(seq uint64, data interface{}) (out []interface{}, compl
 	return nil, false
 }
 
+// SetMaxSeq defines when should this queue stop adding data
 func (q *SeqQueue) SetMaxSeq(maxSeq uint64) (completed bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -103,6 +107,7 @@ func (q *SeqQueue) SetMaxSeq(maxSeq uint64) (completed bool) {
 	return false
 }
 
+// Reset to make this queue empty again
 func (q *SeqQueue) Reset() {
 	q.mu.Lock()
 	defer q.mu.Unlock()

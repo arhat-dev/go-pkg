@@ -25,12 +25,14 @@ import (
 	"time"
 )
 
+// Errors for timeout queue
 var (
 	ErrNotStarted    = errors.New("not started")
 	ErrStopped       = errors.New("stopped")
 	ErrKeyNotAllowed = errors.New("key not allowed")
 )
 
+// NewTimeoutQueue returns an idle TimeoutQueue
 func NewTimeoutQueue() *TimeoutQueue {
 	t := time.NewTimer(0)
 	if !t.Stop() {
@@ -57,6 +59,7 @@ func NewTimeoutQueue() *TimeoutQueue {
 	}
 }
 
+// TimeoutData is the data set used internally
 type TimeoutData struct {
 	Key  interface{}
 	Data interface{}
@@ -64,6 +67,8 @@ type TimeoutData struct {
 	expireAt int64 // utc unix nano
 }
 
+// TimeoutQueue to arrange timeout events in a single queue, then you can
+// access them in sequence with channel
 type TimeoutQueue struct {
 	stop    <-chan struct{}
 	started uint32
@@ -87,6 +92,7 @@ type TimeoutQueue struct {
 	timeoutCh chan *TimeoutData
 }
 
+// Start to accept timeout data set
 func (q *TimeoutQueue) Start(stop <-chan struct{}) {
 	if atomic.CompareAndSwapUint32(&q.started, 0, 1) {
 		q.stop = stop
@@ -148,14 +154,17 @@ func (q *TimeoutQueue) Start(stop <-chan struct{}) {
 	}()
 }
 
+// Len is used internally for timeout data sort
 func (q *TimeoutQueue) Len() int {
 	return len(q.data)
 }
 
+// Less is used internally for timeout data sort
 func (q *TimeoutQueue) Less(i, j int) bool {
 	return q.data[i].expireAt < q.data[j].expireAt
 }
 
+// Swap is used internally for timeout data sort
 func (q *TimeoutQueue) Swap(i, j int) {
 	// swap index
 	q.index[q.data[i].Key], q.index[q.data[j].Key] = j, i
@@ -222,6 +231,9 @@ func (q *TimeoutQueue) sort() {
 	}
 }
 
+// OfferWithTime to enqueue key-value pair with time, timeout at `time`, if you
+// would like to call Remove to delete the timeout object, `key` must be unique
+// in this queue
 func (q *TimeoutQueue) OfferWithTime(key, val interface{}, at time.Time) error {
 	if atomic.LoadUint32(&q.started) == 0 {
 		return ErrNotStarted
@@ -256,16 +268,20 @@ func (q *TimeoutQueue) OfferWithTime(key, val interface{}, at time.Time) error {
 	return nil
 }
 
-// OfferWithDelay a new timeout key-value pair, timeout after `wait`, if you would like to
-// call Remove to delete the timeout object, `key` must be unique in the queue
+// OfferWithDelay to enqueue key-value pair, timeout after `wait`, if you
+// would like to call Remove to delete the timeout object, `key` must be unique
+// in this queue
 func (q *TimeoutQueue) OfferWithDelay(key, val interface{}, wait time.Duration) error {
 	return q.OfferWithTime(key, val, time.Now().Add(wait))
 }
 
+// TakeCh returns the channel from which you can get key-value pairs timed out
+// one by one
 func (q *TimeoutQueue) TakeCh() <-chan *TimeoutData {
 	return q.timeoutCh
 }
 
+// Clear out all timeout key-value pairs
 func (q *TimeoutQueue) Clear() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -309,6 +325,7 @@ func (q *TimeoutQueue) Forbid(key interface{}) {
 	q.blackList[key] = struct{}{}
 }
 
+// Find timeout key-value pair according to the key
 func (q *TimeoutQueue) Find(key interface{}) (interface{}, bool) {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
@@ -321,6 +338,7 @@ func (q *TimeoutQueue) Find(key interface{}) (interface{}, bool) {
 	return nil, false
 }
 
+// Remains shows key-value pairs not timed out
 func (q *TimeoutQueue) Remains() []TimeoutData {
 	q.mu.RLock()
 	defer q.mu.RUnlock()

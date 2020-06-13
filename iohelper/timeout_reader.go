@@ -24,6 +24,10 @@ import (
 	"time"
 )
 
+// TimeoutReader is a reader with read timeout
+//
+// It is designed for those want to read some data from a stream, and the size
+// of the data is unknown, but still want to pipe data to some destination.
 type TimeoutReader struct {
 	buf         *bytes.Buffer
 	maxDataSize int
@@ -39,6 +43,7 @@ type TimeoutReader struct {
 	mu      *sync.RWMutex
 }
 
+// NewTimeoutReader creates a new idle timeout reader
 func NewTimeoutReader(r io.Reader, maxDataSize int) *TimeoutReader {
 	return &TimeoutReader{
 		// internal buffer starts from 4k bytes and will grow to maxDataSize
@@ -52,6 +57,7 @@ func NewTimeoutReader(r io.Reader, maxDataSize int) *TimeoutReader {
 	}
 }
 
+// Error returns the error happened during reading in background
 func (t *TimeoutReader) Error() error {
 	if e := t.err.Load(); e != nil {
 		return e.(error)
@@ -60,7 +66,8 @@ func (t *TimeoutReader) Error() error {
 	return nil
 }
 
-// StartBackgroundReading until EOF or errored
+// StartBackgroundReading until EOF or error returned, should be called in a goroutine
+// other than the one you are reading
 func (t *TimeoutReader) StartBackgroundReading() {
 	if !atomic.CompareAndSwapUint32(&t.started, 0, 1) {
 		return
@@ -120,6 +127,8 @@ func (t *TimeoutReader) StartBackgroundReading() {
 
 }
 
+// WaitUntilHasData is used to minimize call of ReadWithTimeout when the timeout is
+// a small duration
 func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
 	if t.Error() != nil {
 		t.mu.RLock()
@@ -153,6 +162,15 @@ func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
 	}
 }
 
+// ReadWithTimeout perform a read operation on buffered data, return a chunk
+// of data if
+//
+// the size of the buffered data has reached or maxed out the `maxDataSize`,
+// then the size of returned data chunk will be `maxDataSize`
+//
+// or
+//
+// the operation timed out, will return all of the buffered data
 func (t *TimeoutReader) ReadWithTimeout(timeout time.Duration) []byte {
 	if timeout < 0 {
 		return nil

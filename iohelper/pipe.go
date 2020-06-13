@@ -21,6 +21,7 @@ import (
 	"os"
 )
 
+// Pipe returns io.Pipe if os.Pipe errored
 func Pipe() (io.ReadCloser, io.WriteCloser) {
 	var (
 		r io.ReadCloser

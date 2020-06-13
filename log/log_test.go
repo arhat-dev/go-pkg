@@ -26,7 +26,7 @@ func TestLog(t *testing.T) {
 	Log.WithName("test")
 	Log.D("no output")
 
-	err := SetDefaultLogger([]Config{{Level: "debug", Format: "json", File: "stderr"}})
+	err := SetDefaultLogger([]Config{{Level: "debug", Format: "json", Destination: Destination{File: "stderr"}}})
 	assert.NoError(t, err)
 
 	l := Log.WithName("test")
