@@ -34,18 +34,9 @@ const (
 )
 
 var (
-	Log  *Logger
+	Log  Interface
 	once = new(sync.Once)
 )
-
-type Structure struct {
-	Msg        string `json:"M,omitempty"`
-	Level      string `json:"L,omitempty"`
-	Time       string `json:"T,omitempty"`
-	Name       string `json:"N,omitempty"`
-	Caller     string `json:"C,omitempty"`
-	Stacktrace string `json:"S,omitempty"`
-}
 
 func getLevelEnablerFunc(targetLevel zapcore.Level) zap.LevelEnablerFunc {
 	return func(l zapcore.Level) bool {
@@ -203,14 +194,14 @@ func (l *Logger) Enabled(level Level) bool {
 	return l.core.Enabled(zapcore.Level(level))
 }
 
-func (l *Logger) WithName(name string) *Logger {
+func (l *Logger) WithName(name string) Interface {
 	return &Logger{
 		name: name,
 		core: l.core,
 	}
 }
 
-func (l *Logger) WithFields(fields ...Field) *Logger {
+func (l *Logger) WithFields(fields ...Field) Interface {
 	return &Logger{
 		name: l.name,
 		core: l.core.With(fields),
