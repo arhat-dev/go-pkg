@@ -1,3 +1,3 @@
 # go-pkg
 
-Golang building blocks of arhat.dev
+General Purpose Golang Building Blocks
