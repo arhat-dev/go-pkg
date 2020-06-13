@@ -29,7 +29,7 @@ func TestBackoff(t *testing.T) {
 		key       = "foo"
 		threshold = 10
 	)
-	b := NewBackoff(time.Second, 1024*time.Second, 2, threshold)
+	b := NewStrategy(time.Second, 1024*time.Second, 2, threshold)
 
 	for i := 0; i < threshold; i++ {
 		assert.Equal(t, time.Duration(0), b.Next(key))

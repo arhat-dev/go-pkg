@@ -21,8 +21,9 @@ import (
 	"time"
 )
 
-func NewBackoff(initialDelay, maxDelay time.Duration, factor float64, backoffThreshold uint64) *Backoff {
-	return &Backoff{
+// NewStrategy returns a backoff calculation strategy
+func NewStrategy(initialDelay, maxDelay time.Duration, factor float64, backoffThreshold uint64) *Strategy {
+	return &Strategy{
 		initialDelay:     initialDelay,
 		maxDelay:         maxDelay,
 		factor:           factor,
@@ -38,7 +39,8 @@ type backoffItem struct {
 	counter      uint64
 }
 
-type Backoff struct {
+// Strategy defines how to calculate backoff time
+type Strategy struct {
 	initialDelay     time.Duration
 	maxDelay         time.Duration
 	factor           float64
@@ -48,7 +50,8 @@ type Backoff struct {
 	mu *sync.RWMutex
 }
 
-func (b *Backoff) Next(key interface{}) time.Duration {
+// Next returns next backoff time of key
+func (b *Strategy) Next(key interface{}) time.Duration {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -76,7 +79,8 @@ func (b *Backoff) Next(key interface{}) time.Duration {
 	return nextDelay
 }
 
-func (b *Backoff) Reset(key interface{}) {
+// Reset backoff time for key
+func (b *Strategy) Reset(key interface{}) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
