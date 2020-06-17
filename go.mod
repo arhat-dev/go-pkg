@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/creack/pty v1.1.11
+	github.com/itchyny/gojq v0.10.3
 	github.com/prometheus/client_golang v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
@@ -16,7 +17,6 @@ require (
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
 	google.golang.org/grpc v1.27.1
-	gopkg.in/yaml.v3 v3.0.0-20200605160147-a5ece683394c // indirect
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v0.18.3
