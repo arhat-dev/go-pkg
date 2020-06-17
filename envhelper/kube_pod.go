@@ -1,4 +1,6 @@
-package kubehelper
+// +build !nocloud,!nokube
+
+package envhelper
 
 import (
 	"os"

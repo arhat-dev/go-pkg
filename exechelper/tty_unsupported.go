@@ -9,6 +9,6 @@ import (
 	"arhat.dev/pkg/wellknowerrors"
 )
 
-func startCmdWithTty(logger log.Interface, cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, resizeH ResizeHandleFunc) (func(), error) {
+func startCmdWithTty(logger log.Interface, cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, resizeH TtyResizeSignalFunc) (func(), error) {
 	return nil, wellknownerrors.ErrNotSupported
 }

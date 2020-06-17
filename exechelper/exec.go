@@ -1,24 +1,41 @@
 package exechelper
 
 import (
-	"arhat.dev/pkg/log"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 
+	"arhat.dev/pkg/log"
 	"arhat.dev/pkg/wellknowerrors"
 )
+
+type Spec struct {
+	Logger log.Interface
+
+	Env     map[string]string
+	Command []string
+
+	Stdin          io.Reader
+	Stdout, Stderr io.Writer
+
+	Tty            bool
+	OnResizeSignal TtyResizeSignalFunc
+}
 
 const (
 	DefaultExitCodeOnError = 128
 )
 
-type ResizeHandleFunc func(doResize func(cols, rows uint64) error) (more bool)
+type TtyResizeSignalFunc func(doResize func(cols, rows uint64) error) (more bool)
 
 func DoHeadless(command []string, env map[string]string) (int, error) {
-	return Do(nil, nil, nil, nil, command, false, env)
+	return Do(Spec{
+		Env:     env,
+		Command: command,
+		Tty:     false,
+	})
 }
 
 func Prepare(command []string, tty bool, env map[string]string) *exec.Cmd {
@@ -36,23 +53,23 @@ func Prepare(command []string, tty bool, env map[string]string) *exec.Cmd {
 }
 
 // Do execute command directly in host
-func Do(logger log.Interface, stdin io.Reader, stdout, stderr io.Writer, resizeH ResizeHandleFunc, command []string, tty bool, env map[string]string) (int, error) {
-	if len(command) == 0 {
+func Do(s Spec) (int, error) {
+	if len(s.Command) == 0 {
 		// impossible for agent exec, but still check for test
 		return DefaultExitCodeOnError, fmt.Errorf("empty command: %w", wellknownerrors.ErrInvalidOperation)
 	}
 
-	cmd := Prepare(command, tty, env)
-	if tty {
-		cleanup, err := startCmdWithTty(logger, cmd, stdin, stdout, resizeH)
+	cmd := Prepare(s.Command, s.Tty, s.Env)
+	if s.Tty {
+		cleanup, err := startCmdWithTty(s.Logger, cmd, s.Stdin, s.Stdout, s.OnResizeSignal)
 		if err != nil {
 			return DefaultExitCodeOnError, err
 		}
 		defer cleanup()
 	} else {
-		cmd.Stdin = stdin
-		cmd.Stdout = stdout
-		cmd.Stderr = stderr
+		cmd.Stdin = s.Stdin
+		cmd.Stdout = s.Stdout
+		cmd.Stderr = s.Stderr
 
 		if err := cmd.Start(); err != nil {
 			return DefaultExitCodeOnError, err
