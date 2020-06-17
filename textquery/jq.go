@@ -39,11 +39,32 @@ func JQBytes(query string, input []byte) (string, error) {
 		data = input
 	}
 
-	return runQuery(q, data)
+	return RunQuery(q, data, nil)
 }
 
-func runQuery(query *gojq.Query, data interface{}) (string, error) {
-	iter := query.Run(data)
+func RunQuery(query *gojq.Query, data interface{}, kvPairs map[string]interface{}) (string, error) {
+	var iter gojq.Iter
+
+	if len(kvPairs) == 0 {
+		iter = query.Run(data)
+	} else {
+		var (
+			keys   []string
+			values []interface{}
+		)
+		for k, v := range kvPairs {
+			keys = append(keys, k)
+			values = append(values, v)
+		}
+
+		code, err := gojq.Compile(query, gojq.WithVariables(keys))
+		if err != nil {
+			return "", fmt.Errorf("failed to compile query with variables: %w", err)
+		}
+
+		iter = code.Run(data, values...)
+	}
+
 	var result []interface{}
 	for {
 		v, ok := iter.Next()
