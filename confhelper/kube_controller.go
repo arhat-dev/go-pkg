@@ -8,7 +8,7 @@ import (
 	"arhat.dev/pkg/log"
 )
 
-func FlagsForCommonControllerConfig(name, prefix string, l *log.Config, c *ControllerConfig) *pflag.FlagSet {
+func FlagsForControllerConfig(name, prefix string, l *log.Config, c *ControllerConfig) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("kube.controller", pflag.ExitOnError)
 
 	// logging
