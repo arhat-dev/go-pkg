@@ -7,8 +7,8 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// MarshalED25519PrivateKey to marshal ed25519 private key to openssh format
-func MarshalED25519PrivateKey(key ed25519.PrivateKey) []byte {
+// MarshalED25519PrivateKeyForOpenSSH to marshal ed25519 private key to openssh format
+func MarshalED25519PrivateKeyForOpenSSH(key ed25519.PrivateKey) []byte {
 	pk1 := struct {
 		Check1  uint32
 		Check2  uint32
