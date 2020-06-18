@@ -39,10 +39,11 @@ func JQBytes(query string, input []byte) (string, error) {
 		data = input
 	}
 
-	return RunQuery(q, data, nil)
+	result, _, err := RunQuery(q, data, nil)
+	return result, err
 }
 
-func RunQuery(query *gojq.Query, data interface{}, kvPairs map[string]interface{}) (string, error) {
+func RunQuery(query *gojq.Query, data interface{}, kvPairs map[string]interface{}) (string, bool, error) {
 	var iter gojq.Iter
 
 	if len(kvPairs) == 0 {
@@ -59,7 +60,7 @@ func RunQuery(query *gojq.Query, data interface{}, kvPairs map[string]interface{
 
 		code, err := gojq.Compile(query, gojq.WithVariables(keys))
 		if err != nil {
-			return "", fmt.Errorf("failed to compile query with variables: %w", err)
+			return "", false, fmt.Errorf("failed to compile query with variables: %w", err)
 		}
 
 		iter = code.Run(data, values...)
@@ -73,7 +74,7 @@ func RunQuery(query *gojq.Query, data interface{}, kvPairs map[string]interface{
 		}
 
 		if err, ok := v.(error); ok {
-			return "", err
+			return "", false, err
 		}
 
 		result = append(result, v)
@@ -81,52 +82,52 @@ func RunQuery(query *gojq.Query, data interface{}, kvPairs map[string]interface{
 
 	switch len(result) {
 	case 0:
-		return "", nil
+		return "", false, nil
 	case 1:
 		switch r := result[0].(type) {
 		case string:
-			return r, nil
+			return r, true, nil
 		case []byte:
-			return string(r), nil
+			return string(r), true, nil
 		case []interface{}, map[string]interface{}:
 			res, err := json.Marshal(r)
-			return string(res), err
+			return string(res), true, err
 		case int64:
-			return strconv.FormatInt(r, 10), nil
+			return strconv.FormatInt(r, 10), true, nil
 		case int32:
-			return strconv.FormatInt(int64(r), 10), nil
+			return strconv.FormatInt(int64(r), 10), true, nil
 		case int16:
-			return strconv.FormatInt(int64(r), 10), nil
+			return strconv.FormatInt(int64(r), 10), true, nil
 		case int8:
-			return strconv.FormatInt(int64(r), 10), nil
+			return strconv.FormatInt(int64(r), 10), true, nil
 		case int:
-			return strconv.FormatInt(int64(r), 10), nil
+			return strconv.FormatInt(int64(r), 10), true, nil
 		case uint64:
-			return strconv.FormatUint(r, 10), nil
+			return strconv.FormatUint(r, 10), true, nil
 		case uint32:
-			return strconv.FormatUint(uint64(r), 10), nil
+			return strconv.FormatUint(uint64(r), 10), true, nil
 		case uint16:
-			return strconv.FormatUint(uint64(r), 10), nil
+			return strconv.FormatUint(uint64(r), 10), true, nil
 		case uint8:
-			return strconv.FormatUint(uint64(r), 10), nil
+			return strconv.FormatUint(uint64(r), 10), true, nil
 		case uint:
-			return strconv.FormatUint(uint64(r), 10), nil
+			return strconv.FormatUint(uint64(r), 10), true, nil
 		case float64:
-			return strconv.FormatFloat(r, 'f', -1, 64), nil
+			return strconv.FormatFloat(r, 'f', -1, 64), true, nil
 		case float32:
-			return strconv.FormatFloat(float64(r), 'f', -1, 64), nil
+			return strconv.FormatFloat(float64(r), 'f', -1, 64), true, nil
 		case bool:
 			if r {
-				return "true", nil
+				return "true", true, nil
 			}
-			return "false", nil
+			return "false", true, nil
 		case nil:
-			return "null", nil
+			return "null", true, nil
 		default:
-			return fmt.Sprintf("%v", r), nil
+			return fmt.Sprintf("%v", r), true, nil
 		}
 	default:
 		res, err := json.Marshal(result)
-		return string(res), err
+		return string(res), true, err
 	}
 }
