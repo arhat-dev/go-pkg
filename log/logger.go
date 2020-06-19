@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,9 +33,21 @@ const (
 )
 
 var (
-	Log  Interface
-	once = new(sync.Once)
+	Log        Interface
+	NoOpLogger Interface
+	once       = new(sync.Once)
 )
+
+func init() {
+	var err error
+	// initial nop logger
+	NoOpLogger, err = New("", ConfigSet{})
+	Log = NoOpLogger
+
+	if err != nil {
+		panic(err)
+	}
+}
 
 func getLevelEnablerFunc(targetLevel zapcore.Level) zap.LevelEnablerFunc {
 	return func(l zapcore.Level) bool {
@@ -129,28 +140,6 @@ func New(name string, config ConfigSet) (*Logger, error) {
 	return &Logger{name: name, core: core}, nil
 }
 
-type Level zapcore.Level
-
-const (
-	LevelVerbose = Level(zapcore.DebugLevel)
-	LevelDebug   = Level(zapcore.InfoLevel)
-	LevelInfo    = Level(zapcore.WarnLevel)
-	LevelError   = Level(zapcore.ErrorLevel)
-	LevelSilent  = Level(zapcore.FatalLevel + 1)
-)
-
-var levelNameMapping = map[Level]string{
-	LevelVerbose: "V",
-	LevelDebug:   "D",
-	LevelInfo:    "I",
-	LevelError:   "E",
-	LevelSilent:  "S",
-}
-
-func (l Level) String() string {
-	return levelNameMapping[l]
-}
-
 func SetDefaultLogger(cs ConfigSet) error {
 	var err error
 	once.Do(func() {
@@ -161,28 +150,6 @@ func SetDefaultLogger(cs ConfigSet) error {
 	})
 
 	return err
-}
-
-func init() {
-	var err error
-	// initial nop logger
-	Log, err = New("", ConfigSet{})
-
-	if err != nil {
-		panic(err)
-	}
-}
-
-var strLevelToLevel = map[string]Level{
-	"verbose": LevelVerbose,
-	"debug":   LevelDebug,
-	"info":    LevelInfo,
-	"error":   LevelError,
-	"silent":  LevelSilent,
-}
-
-func parseZapLevel(levelStr string) zapcore.Level {
-	return zapcore.Level(strLevelToLevel[strings.ToLower(strings.TrimSpace(levelStr))])
 }
 
 type Logger struct {

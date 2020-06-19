@@ -29,9 +29,9 @@ func TestWorkQueue_delete(t *testing.T) {
 		workCount = 100
 	)
 
-	q := NewWorkQueue()
+	q := NewJobQueue()
 	for i := 0; i < workCount; i++ {
-		assert.NoError(t, q.Offer(ActionAdd, strconv.Itoa(i)))
+		assert.NoError(t, q.Offer(Job{ActionAdd, strconv.Itoa(i)}))
 	}
 
 	for i := 0; i < workCount/2; i++ {
@@ -51,7 +51,7 @@ func TestWorkQueue_delete(t *testing.T) {
 		assert.Equal(t, workCount-i/2-1, len(q.queue))
 		assert.False(t, q.has(ActionAdd, podUID))
 
-		idxInWorkQueue, ok := q.index[Work{Action: ActionAdd, Key: nextPodUID}]
+		idxInWorkQueue, ok := q.index[Job{Action: ActionAdd, Key: nextPodUID}]
 		assert.True(t, ok)
 		assert.Equal(t, j, idxInWorkQueue)
 		nextWork := q.queue[idxInWorkQueue]
@@ -66,7 +66,7 @@ func TestWorkQueueLogic(t *testing.T) {
 	var (
 		foo = "foo"
 	)
-	q := NewWorkQueue()
+	q := NewJobQueue()
 	assert.True(t, q.isClosed())
 	for i := 0; i < 10000; i++ {
 		// work should be invalid since work queue has been closed
@@ -78,8 +78,8 @@ func TestWorkQueueLogic(t *testing.T) {
 	q.Resume()
 	assert.False(t, q.isClosed())
 
-	assert.NoError(t, q.Offer(ActionUpdate, foo))
-	assert.Equal(t, ErrWorkDuplicate, q.Offer(ActionUpdate, foo))
+	assert.NoError(t, q.Offer(Job{ActionUpdate, foo}))
+	assert.Equal(t, ErrJobDuplicated, q.Offer(Job{ActionUpdate, foo}))
 
 	assert.Equal(t, 1, len(q.queue))
 	assert.Equal(t, 1, len(q.index))
@@ -91,17 +91,17 @@ func TestWorkQueueLogic(t *testing.T) {
 	assert.Equal(t, 0, len(q.queue))
 	assert.Equal(t, 0, len(q.index))
 
-	assert.NoError(t, q.Offer(ActionAdd, foo))
-	assert.Equal(t, ErrWorkDuplicate, q.Offer(ActionAdd, foo))
+	assert.NoError(t, q.Offer(Job{ActionAdd, foo}))
+	assert.Equal(t, ErrJobDuplicated, q.Offer(Job{ActionAdd, foo}))
 	assert.Equal(t, 1, len(q.queue))
 	assert.Equal(t, 1, len(q.index))
 
-	assert.Equal(t, ErrWorkCounteract, q.Offer(ActionDelete, foo))
+	assert.Equal(t, ErrJobCounteract, q.Offer(Job{ActionDelete, foo}))
 	assert.Equal(t, 0, len(q.queue))
 	assert.Equal(t, 0, len(q.index))
 
-	assert.NoError(t, q.Offer(ActionUpdate, foo))
-	assert.NoError(t, q.Offer(ActionDelete, foo))
+	assert.NoError(t, q.Offer(Job{ActionUpdate, foo}))
+	assert.NoError(t, q.Offer(Job{ActionDelete, foo}))
 	assert.Equal(t, 1, len(q.queue))
 	assert.Equal(t, 1, len(q.index))
 
@@ -120,7 +120,7 @@ func TestWorkQueueAction(t *testing.T) {
 		WaitTime     = 10 * time.Millisecond
 	)
 
-	q := NewWorkQueue()
+	q := NewJobQueue()
 
 	sigCh := make(chan struct{})
 	finished := func() bool {
@@ -150,7 +150,7 @@ func TestWorkQueueAction(t *testing.T) {
 			}
 
 			time.Sleep(WaitTime)
-			_ = q.Offer(ActionAdd, strconv.Itoa(i))
+			_ = q.Offer(Job{ActionAdd, strconv.Itoa(i)})
 		}
 	}()
 

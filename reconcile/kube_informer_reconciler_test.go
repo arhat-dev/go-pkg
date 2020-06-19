@@ -14,7 +14,7 @@ func TestReconciler_objectCache(t *testing.T) {
 		objectValue = "test"
 	)
 	informer := kubecache.NewSharedIndexInformer(nil, &corev1.Pod{}, 0, nil)
-	r := NewReconciler(context.TODO(), "test.objectCache", informer, &HandleFuncs{})
+	r := NewKubeInformerReconciler(context.TODO(), "test.objectCache", informer, &HandleFuncs{})
 
 	r.updateObjectByKey(objectKey, nil, objectValue)
 	old, latest := r.getObjectByKey(objectKey)

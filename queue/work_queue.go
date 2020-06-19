@@ -23,19 +23,19 @@ import (
 	"sync/atomic"
 )
 
-// Errors for WorkQueue
+// Errors for JobQueue
 var (
-	ErrWorkDuplicate  = errors.New("work duplicated")
-	ErrWorkConflict   = errors.New("work conflicted")
-	ErrWorkCounteract = errors.New("work counteracted")
-	ErrWorkInvalid    = errors.New("work invalid")
+	ErrJobDuplicated = errors.New("job duplicated")
+	ErrJobConflict   = errors.New("job conflicted")
+	ErrJobCounteract = errors.New("job counteracted")
+	ErrJobInvalid    = errors.New("job invalid")
 )
 
-type WorkAction uint8
+type JobAction uint8
 
 const (
 	// ActionInvalid to do nothing
-	ActionInvalid WorkAction = iota
+	ActionInvalid JobAction = iota
 	// ActionAdd to add or create some resource
 	ActionAdd
 	// ActionUpdate to update some resource
@@ -46,7 +46,7 @@ const (
 	ActionCleanup
 )
 
-var actionNames = map[WorkAction]string{
+var actionNames = map[JobAction]string{
 	ActionInvalid: "Invalid",
 	ActionAdd:     "Add",
 	ActionUpdate:  "Update",
@@ -54,17 +54,17 @@ var actionNames = map[WorkAction]string{
 	ActionCleanup: "Cleanup",
 }
 
-func (t WorkAction) String() string {
+func (t JobAction) String() string {
 	return actionNames[t]
 }
 
-// Work item to record action and related resource object
-type Work struct {
-	Action WorkAction
+// Job item to record action and related resource object
+type Job struct {
+	Action JobAction
 	Key    interface{}
 }
 
-func (w Work) String() string {
+func (w Job) String() string {
 	if s, ok := w.Key.(fmt.Stringer); ok {
 		return w.Action.String() + "/" + s.String()
 	}
@@ -72,20 +72,20 @@ func (w Work) String() string {
 	return fmt.Sprintf("%s/%v", w.Action.String(), w.Key)
 }
 
-// NewWorkQueue will create a stopped new work queue,
-// you can offer work to it, but any acquire will fail until
+// NewJobQueue will create a stopped new job queue,
+// you can offer job to it, but any acquire will fail until
 // you have called its Resume()
-func NewWorkQueue() *WorkQueue {
-	// prepare a closed channel for this work queue
-	hasWork := make(chan struct{})
-	close(hasWork)
+func NewJobQueue() *JobQueue {
+	// prepare a closed channel for this job queue
+	hasJob := make(chan struct{})
+	close(hasJob)
 
-	return &WorkQueue{
-		queue: make([]Work, 0, 16),
-		index: make(map[Work]int),
+	return &JobQueue{
+		queue: make([]Job, 0, 16),
+		index: make(map[Job]int),
 
-		// set work queue to closed
-		hasWork:    hasWork,
+		// set job queue to closed
+		hasJob:     hasJob,
 		chanClosed: true,
 		mu:         new(sync.RWMutex),
 
@@ -93,13 +93,13 @@ func NewWorkQueue() *WorkQueue {
 	}
 }
 
-// WorkQueue is the queue data structure designed to reduce redundant work
+// JobQueue is the queue data structure designed to reduce redundant job
 // as much as possible
-type WorkQueue struct {
-	queue []Work
-	index map[Work]int
+type JobQueue struct {
+	queue []Job
+	index map[Job]int
 
-	hasWork    chan struct{}
+	hasJob     chan struct{}
 	chanClosed bool
 	mu         *sync.RWMutex
 
@@ -107,20 +107,20 @@ type WorkQueue struct {
 	closed uint32
 }
 
-func (q *WorkQueue) has(action WorkAction, key interface{}) bool {
-	_, ok := q.index[Work{Action: action, Key: key}]
+func (q *JobQueue) has(action JobAction, key interface{}) bool {
+	_, ok := q.index[Job{Action: action, Key: key}]
 	return ok
 }
 
-func (q *WorkQueue) add(w Work) {
+func (q *JobQueue) add(w Job) {
 	q.index[w] = len(q.queue)
 	q.queue = append(q.queue, w)
 }
 
-func (q *WorkQueue) delete(action WorkAction, key interface{}) {
-	workToDelete := Work{Action: action, Key: key}
-	if idx, ok := q.index[workToDelete]; ok {
-		delete(q.index, workToDelete)
+func (q *JobQueue) delete(action JobAction, key interface{}) {
+	jobToDelete := Job{Action: action, Key: key}
+	if idx, ok := q.index[jobToDelete]; ok {
+		delete(q.index, jobToDelete)
 		q.queue = append(q.queue[:idx], q.queue[idx+1:]...)
 
 		// refresh index
@@ -130,49 +130,49 @@ func (q *WorkQueue) delete(action WorkAction, key interface{}) {
 	}
 }
 
-// Remains shows what work we are still meant to do
-func (q *WorkQueue) Remains() []Work {
+// Remains shows what job we are still meant to do
+func (q *JobQueue) Remains() []Job {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
-	works := make([]Work, len(q.queue))
+	jobs := make([]Job, len(q.queue))
 	for i, w := range q.queue {
-		works[i] = Work{Action: w.Action, Key: w.Key}
+		jobs[i] = Job{Action: w.Action, Key: w.Key}
 	}
-	return works
+	return jobs
 }
 
-// Find the scheduled work according to its key
-func (q *WorkQueue) Find(key interface{}) (Work, bool) {
+// Find the scheduled job according to its key
+func (q *JobQueue) Find(key interface{}) (Job, bool) {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
-	for _, t := range []WorkAction{ActionAdd, ActionUpdate, ActionDelete, ActionCleanup} {
-		i, ok := q.index[Work{Action: t, Key: key}]
+	for _, t := range []JobAction{ActionAdd, ActionUpdate, ActionDelete, ActionCleanup} {
+		i, ok := q.index[Job{Action: t, Key: key}]
 		if ok {
 			return q.queue[i], true
 		}
 	}
 
-	return Work{}, false
+	return Job{}, false
 }
 
-// Acquire a work item from the work queue
-// if shouldAcquireMore is false, w will be an empty work
-func (q *WorkQueue) Acquire() (w Work, shouldAcquireMore bool) {
-	// wait until we have got some work to do
-	// or we have stopped stopped work queue
-	<-q.hasWork
+// Acquire a job item from the job queue
+// if shouldAcquireMore is false, w will be an empty job
+func (q *JobQueue) Acquire() (w Job, shouldAcquireMore bool) {
+	// wait until we have got some job to do
+	// or we have stopped stopped job queue
+	<-q.hasJob
 
 	if q.isClosed() {
-		return Work{Action: ActionInvalid}, false
+		return Job{Action: ActionInvalid}, false
 	}
 
 	q.mu.Lock()
 	defer func() {
 		if len(q.queue) == 0 {
 			if !q.isClosed() {
-				q.hasWork = make(chan struct{})
+				q.hasJob = make(chan struct{})
 			}
 		}
 
@@ -180,7 +180,7 @@ func (q *WorkQueue) Acquire() (w Work, shouldAcquireMore bool) {
 	}()
 
 	if len(q.queue) == 0 {
-		return Work{Action: ActionInvalid}, true
+		return Job{Action: ActionInvalid}, true
 	}
 
 	w = q.queue[0]
@@ -189,63 +189,62 @@ func (q *WorkQueue) Acquire() (w Work, shouldAcquireMore bool) {
 	return w, true
 }
 
-// Offer a work item to the work queue
-// if offered work was not added, an error result will return, otherwise nil
-func (q *WorkQueue) Offer(action WorkAction, key interface{}) error {
+// Offer a job item to the job queue
+// if offered job was not added, an error result will return, otherwise nil
+func (q *JobQueue) Offer(w Job) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if action == ActionInvalid {
-		return ErrWorkInvalid
+	if w.Action == ActionInvalid {
+		return ErrJobInvalid
 	}
 
-	newJob := Work{Action: action, Key: key}
-	_, dup := q.index[newJob]
+	_, dup := q.index[w]
 	if dup {
-		return ErrWorkDuplicate
+		return ErrJobDuplicated
 	}
 
-	switch action {
+	switch w.Action {
 	case ActionAdd:
-		if q.has(ActionUpdate, key) {
-			return ErrWorkConflict
+		if q.has(ActionUpdate, w.Key) {
+			return ErrJobConflict
 		}
 
-		q.add(newJob)
+		q.add(w)
 	case ActionUpdate:
-		if q.has(ActionAdd, key) || q.has(ActionDelete, key) {
-			return ErrWorkConflict
+		if q.has(ActionAdd, w.Key) || q.has(ActionDelete, w.Key) {
+			return ErrJobConflict
 		}
 
-		q.add(newJob)
+		q.add(w)
 	case ActionDelete:
 		// pod need to be deleted
-		if q.has(ActionAdd, key) {
-			// cancel according create work
-			q.delete(ActionAdd, key)
-			return ErrWorkCounteract
+		if q.has(ActionAdd, w.Key) {
+			// cancel according create job
+			q.delete(ActionAdd, w.Key)
+			return ErrJobCounteract
 		}
 
-		if q.has(ActionUpdate, key) {
+		if q.has(ActionUpdate, w.Key) {
 			// if you want to delete it now, update operation doesn't matter any more
-			q.delete(ActionUpdate, key)
+			q.delete(ActionUpdate, w.Key)
 		}
 
-		q.add(newJob)
+		q.add(w)
 	case ActionCleanup:
 		// cleanup job only requires no duplication
 
-		q.add(newJob)
+		q.add(w)
 	}
 
-	// we reach here means we have added some work to the queue
+	// we reach here means we have added some job to the queue
 	// we should signal those consumers to go for it
 	select {
-	case <-q.hasWork:
-		// we can reach here means q.hasWork has been closed
+	case <-q.hasJob:
+		// we can reach here means q.hasJob has been closed
 	default:
 		// release the signal
-		close(q.hasWork)
+		close(q.hasJob)
 		// mark the channel closed to prevent a second close which would panic
 		q.chanClosed = true
 	}
@@ -254,35 +253,50 @@ func (q *WorkQueue) Offer(action WorkAction, key interface{}) error {
 }
 
 // Resume do nothing but mark you can perform acquire
-// actions to the work queue
-func (q *WorkQueue) Resume() {
+// actions to the job queue
+func (q *JobQueue) Resume() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	if q.chanClosed && len(q.queue) == 0 {
 		// reopen signal channel for wait
-		q.hasWork = make(chan struct{})
+		q.hasJob = make(chan struct{})
 		q.chanClosed = false
 	}
 
 	atomic.StoreUint32(&q.closed, 0)
 }
 
-// Pause do nothing but mark this work queue is closed,
-// you should not perform acquire actions to the work queue
-func (q *WorkQueue) Pause() {
+// Pause do nothing but mark this job queue is closed,
+// you should not perform acquire actions to the job queue
+func (q *JobQueue) Pause() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	if !q.chanClosed {
 		// close wait channel to prevent wait
-		close(q.hasWork)
+		close(q.hasJob)
 		q.chanClosed = true
 	}
 
 	atomic.StoreUint32(&q.closed, 1)
 }
 
-func (q *WorkQueue) isClosed() bool {
+func (q *JobQueue) Remove(w Job) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	i, ok := q.index[w]
+	if !ok {
+		return false
+	}
+
+	q.queue = append(q.queue[:i], q.queue[i+1:]...)
+	delete(q.index, w)
+
+	return true
+}
+
+func (q *JobQueue) isClosed() bool {
 	return atomic.LoadUint32(&q.closed) == 1
 }

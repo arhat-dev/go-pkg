@@ -16,7 +16,9 @@ limitations under the License.
 
 package log
 
-import "github.com/spf13/pflag"
+import (
+	"github.com/spf13/pflag"
+)
 
 type Config struct {
 	Level       string `json:"level" yaml:"level"`
@@ -29,8 +31,8 @@ func FlagsForLogConfig(prefix string, c *Config) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("log", pflag.ExitOnError)
 
 	fs.StringVarP(&c.Level, prefix+"level", "v", "error", "log level, one of [verbose, debug, info, error, silent]")
-	fs.StringVar(&c.File, prefix+"file", "stderr", "log to this file")
 	fs.StringVar(&c.Format, prefix+"format", "console", "log output format, one of [console, json]")
+	fs.StringVar(&c.File, prefix+"file", "stderr", "log to this file")
 
 	return fs
 }
