@@ -17,7 +17,6 @@ limitations under the License.
 package iohelper
 
 import (
-	"bytes"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -29,13 +28,13 @@ import (
 // It is designed for those want to read some data from a stream, and the size
 // of the data is unknown, but still want to pipe data to some destination.
 type TimeoutReader struct {
-	buf         *bytes.Buffer
-	maxDataSize int
-	r           io.Reader
+	buf       []byte
+	chunkSize int
+	r         io.Reader
 
-	// signal to notify user can do ReadWithTimeout operation
+	// signal to notify user can do ReadUntilTimeout operation
 	hasData chan struct{}
-	// signal to notify the size of buffered data has reached maxDataSize
+	// signal to notify the size of buffered data has reached chunkSize
 	dataFull chan struct{}
 
 	started uint32
@@ -44,16 +43,17 @@ type TimeoutReader struct {
 }
 
 // NewTimeoutReader creates a new idle timeout reader
-func NewTimeoutReader(r io.Reader, maxDataSize int) *TimeoutReader {
+func NewTimeoutReader(r io.Reader, chunkSize int) *TimeoutReader {
 	return &TimeoutReader{
-		// internal buffer starts from 4k bytes and will grow to maxDataSize
-		buf:         new(bytes.Buffer),
-		maxDataSize: maxDataSize,
-		hasData:     make(chan struct{}),
-		dataFull:    make(chan struct{}),
-		err:         new(atomic.Value),
-		r:           r,
-		mu:          new(sync.RWMutex),
+		chunkSize: chunkSize,
+		r:         r,
+
+		hasData:  make(chan struct{}),
+		dataFull: make(chan struct{}),
+
+		started: 0,
+		err:     new(atomic.Value),
+		mu:      new(sync.RWMutex),
 	}
 }
 
@@ -80,8 +80,8 @@ func (t *TimeoutReader) StartBackgroundReading() {
 
 	oneByte := make([]byte, 1)
 	for {
-		// read one byte a time to avoid blocking
-		n, err = t.r.Read(oneByte)
+		// read one byte a time to avoid being blocked
+		n, err = io.ReadFull(t.r, oneByte)
 		switch n {
 		case 0:
 			// no bytes read or error happened
@@ -107,8 +107,9 @@ func (t *TimeoutReader) StartBackgroundReading() {
 				close(t.hasData)
 			}
 
-			t.buf.WriteByte(oneByte[0])
-			if t.buf.Len() >= t.maxDataSize {
+			// rely on the default slice grow
+			t.buf = append(t.buf, oneByte[0])
+			if len(t.buf) >= t.chunkSize {
 				select {
 				case <-t.dataFull:
 				default:
@@ -127,21 +128,31 @@ func (t *TimeoutReader) StartBackgroundReading() {
 
 }
 
-// WaitUntilHasData is used to minimize call of ReadWithTimeout when the timeout is
-// a small duration
-func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
-	if t.Error() != nil {
+func (t *TimeoutReader) hasDataInBuf() bool {
+	// take a snapshot of the channel pointer in case it got closed and recreated
+	t.mu.RLock()
+	hasData := t.hasData
+	t.mu.RUnlock()
+
+	select {
+	case <-hasData:
 		t.mu.RLock()
 		defer t.mu.RUnlock()
+		return len(t.buf) != 0
+	default:
+		return false
+	}
+}
 
-		if t.buf.Len() == 0 {
-			// no data unread
-			return false
-		}
-		// has data
-		return true
+// WaitUntilHasData is a helper function used to check if there is data available,
+// to reduce actual call of ReadUntilTimeout when the timeout is a short duration
+func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
+	if t.Error() != nil {
+		// error happened, no more data will be read from background
+		return t.hasDataInBuf()
 	}
 
+	// take a snapshot of the channel pointer in case it got closed and recreated
 	t.mu.RLock()
 	hasData := t.hasData
 	t.mu.RUnlock()
@@ -152,62 +163,49 @@ func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
 	case <-hasData:
 		t.mu.RLock()
 		defer t.mu.RUnlock()
-
-		if t.buf.Len() == 0 {
-			// no data unread
-			return false
-		}
-		// has data
-		return true
+		return len(t.buf) != 0
 	}
 }
 
-// ReadWithTimeout perform a read operation on buffered data, return a chunk
+// ReadUntilTimeout perform a read operation on buffered data, return a chunk
 // of data if
 //
-// the size of the buffered data has reached or maxed out the `maxDataSize`,
-// then the size of returned data chunk will be `maxDataSize`
+// the size of the buffered data has reached or maxed out the chunkSize,
+// then the size of returned data chunk will be chunkSize
 //
 // or
 //
-// the operation timed out, will return all of the buffered data
-func (t *TimeoutReader) ReadWithTimeout(timeout time.Duration) []byte {
-	if timeout < 0 {
-		return nil
-	}
-
+// the stop signaled, but buffer is not full, will return all buffered data
+func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
 	var timedOut bool
-
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
 	for {
-		// take a snapshot of current buffer size
+		// take a snapshot for the size of buffered data
 		t.mu.RLock()
-		n := t.buf.Len()
+		size := len(t.buf)
+		n := size
 		t.mu.RUnlock()
 
-		if n >= t.maxDataSize {
-			n = t.maxDataSize
+		if n > t.chunkSize {
+			n = t.chunkSize
 		}
 
-		if n == t.maxDataSize || timedOut {
+		switch {
+		case n == t.chunkSize, timedOut:
 			if n == 0 {
 				return nil
 			}
 
 			t.mu.Lock()
 
-			size := t.buf.Len()
 			if size < n {
 				n = size
 			}
 
-			data := make([]byte, n)
-			_, _ = t.buf.Read(data)
+			data := t.buf[:n]
+			t.buf = t.buf[n:]
 
-			size = t.buf.Len()
-			if size < t.maxDataSize {
+			size = len(t.buf)
+			if size < t.chunkSize {
 				t.dataFull = make(chan struct{})
 			}
 
@@ -220,9 +218,10 @@ func (t *TimeoutReader) ReadWithTimeout(timeout time.Duration) []byte {
 		}
 
 		select {
-		case <-timer.C:
+		case <-stop:
 			timedOut = true
 		case <-t.dataFull:
+			// wait until data full
 		}
 	}
 }
