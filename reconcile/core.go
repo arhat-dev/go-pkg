@@ -172,7 +172,7 @@ handleResult:
 	logger = logger.WithFields(log.Any("nextJob", nextJob))
 	if delay > 0 {
 		logger.V("scheduling next job with delay", log.Duration("delay", delay))
-		err := c.scheduleQ.OfferWithDelay(nextJob.Key, nextJob.Action, delay)
+		err := c.scheduleQ.OfferWithDelay(nextJob, nil, delay)
 		if err != nil {
 			logger.V("failed to reschedule job with delay", log.Error(err))
 		}
