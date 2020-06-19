@@ -19,8 +19,9 @@ func NewCore(ctx context.Context, resolvedOpts *Options) *Core {
 
 		Cache: NewCache(),
 
-		scheduleQ: queue.NewTimeoutQueue(),
-		backoff:   resolvedOpts.BackoffStrategy,
+		requireCache: resolvedOpts.RequireCache,
+		scheduleQ:    queue.NewTimeoutQueue(),
+		backoff:      resolvedOpts.BackoffStrategy,
 
 		h: resolvedOpts.Handlers.ResolveNil(),
 	}
@@ -34,9 +35,10 @@ type Core struct {
 
 	*Cache
 
-	scheduleQ *queue.TimeoutQueue
-	backoff   *backoff.Strategy
-	h         *HandleFuncs
+	requireCache bool
+	scheduleQ    *queue.TimeoutQueue
+	backoff      *backoff.Strategy
+	h            *HandleFuncs
 }
 
 func (c *Core) Start() error {
@@ -80,6 +82,9 @@ func (c *Core) ReconcileUntil(stop <-chan struct{}) {
 }
 
 func (c *Core) Schedule(job queue.Job, delay time.Duration) error {
+	// make sure all on going jobs are unique
+	_ = c.CancelSchedule(job)
+
 	if delay == 0 {
 		err := c.jobQ.Offer(job)
 		if err != nil && !errors.Is(err, queue.ErrJobDuplicated) {
@@ -106,48 +111,29 @@ func (c *Core) handleJob(job queue.Job) {
 	)
 
 	if job.Action == queue.ActionInvalid {
-		logger.V("invalid job discarded")
 		return
 	}
 
 	previous, current := c.Get(job.Key)
 
-	logger.V("working on")
+	if c.requireCache && (previous == nil || current == nil) {
+		result = resultCacheNotFound
+		goto handleResult
+	}
 
 	switch job.Action {
 	case queue.ActionAdd:
-		if current == nil {
-			result = resultCacheNotFound
-			break
-		}
-
 		result = c.h.OnAdded(current)
 	case queue.ActionUpdate:
-		if previous == nil || current == nil {
-			result = resultCacheNotFound
-			break
-		}
-
 		result = c.h.OnUpdated(previous, current)
 		if result == nil || result.Err == nil {
 			// updated successfully, no need to keep old cache any more
 			c.Freeze(job.Key, false)
 		}
 	case queue.ActionDelete:
-		if current == nil {
-			result = resultCacheNotFound
-			break
-		}
-
 		result = c.h.OnDeleting(current)
 	case queue.ActionCleanup:
-		if current == nil {
-			result = resultCacheNotFound
-			break
-		}
-
 		result = c.h.OnDeleted(current)
-
 		if result == nil || result.NextAction == queue.ActionInvalid {
 			// no further action for this key, check pending jobs with same key
 			_, hasPendingJob := c.jobQ.Find(job.Key)
@@ -166,6 +152,7 @@ func (c *Core) handleJob(job queue.Job) {
 		return
 	}
 
+handleResult:
 	nA := result.NextAction
 	delay := result.ScheduleAfter
 	if result.Err != nil {

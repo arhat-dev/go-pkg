@@ -24,6 +24,7 @@ type Options struct {
 	Logger          log.Interface
 	BackoffStrategy *backoff.Strategy
 	Workers         int
+	RequireCache    bool
 	Handlers        HandleFuncs
 }
 
