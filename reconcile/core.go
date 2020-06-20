@@ -44,8 +44,8 @@ type Core struct {
 
 	h *HandleFuncs
 
-	onBackoffStart BackoffCallback
-	onBackoffReset BackoffCallback
+	onBackoffStart BackoffStartCallback
+	onBackoffReset BackoffResetCallback
 }
 
 func (c *Core) Start() error {
@@ -169,7 +169,7 @@ handleResult:
 		}
 
 		if delay != 0 {
-			c.onBackoffStart(job.Key)
+			c.onBackoffStart(job.Key, result.Err)
 		}
 	} else {
 		if c.backoff.Reset(job.Key) {
