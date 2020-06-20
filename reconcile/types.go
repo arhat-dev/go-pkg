@@ -26,6 +26,8 @@ type Options struct {
 	Workers         int
 	RequireCache    bool
 	Handlers        HandleFuncs
+	OnBackoffStart  BackoffCallback
+	OnBackoffReset  BackoffCallback
 }
 
 func (o Options) ResolveNil() *Options {
@@ -34,6 +36,8 @@ func (o Options) ResolveNil() *Options {
 		BackoffStrategy: o.BackoffStrategy,
 		Workers:         o.Workers,
 		Handlers:        o.Handlers,
+		OnBackoffStart:  o.OnBackoffStart,
+		OnBackoffReset:  o.OnBackoffReset,
 	}
 
 	if result.Logger == nil {
@@ -42,6 +46,14 @@ func (o Options) ResolveNil() *Options {
 
 	if result.BackoffStrategy == nil {
 		result.BackoffStrategy = backoff.NewStrategy(300*time.Millisecond, 10*time.Second, 1.5, 3)
+	}
+
+	if result.OnBackoffStart == nil {
+		result.OnBackoffStart = backoffCallbackNoOp
+	}
+
+	if result.OnBackoffReset == nil {
+		result.OnBackoffReset = backoffCallbackNoOp
 	}
 
 	return result
@@ -65,6 +77,10 @@ func singleObjectAlwaysSuccess(_ interface{}) *Result {
 func compareObjectAlwaysSuccess(_, _ interface{}) *Result {
 	return nil
 }
+
+type BackoffCallback func(key interface{})
+
+func backoffCallbackNoOp(key interface{}) {}
 
 type HandleFuncs struct {
 	OnAdded    SingleObjectHandleFunc

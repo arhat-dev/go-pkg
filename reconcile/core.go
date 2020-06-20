@@ -24,6 +24,9 @@ func NewCore(ctx context.Context, resolvedOpts *Options) *Core {
 		backoff:      resolvedOpts.BackoffStrategy,
 
 		h: resolvedOpts.Handlers.ResolveNil(),
+
+		onBackoffStart: resolvedOpts.OnBackoffStart,
+		onBackoffReset: resolvedOpts.OnBackoffReset,
 	}
 }
 
@@ -38,7 +41,11 @@ type Core struct {
 	requireCache bool
 	scheduleQ    *queue.TimeoutQueue
 	backoff      *backoff.Strategy
-	h            *HandleFuncs
+
+	h *HandleFuncs
+
+	onBackoffStart BackoffCallback
+	onBackoffReset BackoffCallback
 }
 
 func (c *Core) Start() error {
@@ -160,8 +167,14 @@ handleResult:
 		if delay == 0 {
 			delay = c.backoff.Next(job.Key)
 		}
+
+		if delay != 0 {
+			c.onBackoffStart(job.Key)
+		}
 	} else {
-		c.backoff.Reset(job.Key)
+		if c.backoff.Reset(job.Key) {
+			c.onBackoffReset(job.Key)
+		}
 	}
 
 	if nA == queue.ActionInvalid {

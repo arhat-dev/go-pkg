@@ -80,9 +80,13 @@ func (b *Strategy) Next(key interface{}) time.Duration {
 }
 
 // Reset backoff time for key
-func (b *Strategy) Reset(key interface{}) {
+func (b *Strategy) Reset(key interface{}) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
-	delete(b.m, key)
+	_, found := b.m[key]
+	if found {
+		delete(b.m, key)
+		return true
+	}
+	return false
 }
