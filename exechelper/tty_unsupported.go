@@ -6,7 +6,7 @@ import (
 	"io"
 	"os/exec"
 
-	"arhat.dev/pkg/wellknowerrors"
+	"arhat.dev/pkg/wellknownerrors"
 )
 
 func startCmdWithTty(logger log.Interface, cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, resizeH TtyResizeSignalFunc) (func(), error) {

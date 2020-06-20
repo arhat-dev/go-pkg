@@ -9,7 +9,7 @@ import (
 	"os/exec"
 
 	"arhat.dev/pkg/log"
-	"arhat.dev/pkg/wellknowerrors"
+	"arhat.dev/pkg/wellknownerrors"
 )
 
 type Spec struct {
