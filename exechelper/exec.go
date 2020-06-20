@@ -1,6 +1,7 @@
 package exechelper
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +13,8 @@ import (
 )
 
 type Spec struct {
-	Logger log.Interface
+	Context context.Context
+	Logger  log.Interface
 
 	Env     map[string]string
 	Command []string
@@ -38,8 +40,14 @@ func DoHeadless(command []string, env map[string]string) (int, error) {
 	})
 }
 
-func Prepare(command []string, tty bool, env map[string]string) *exec.Cmd {
-	cmd := exec.Command(command[0], command[1:]...)
+func Prepare(ctx context.Context, command []string, tty bool, env map[string]string) *exec.Cmd {
+	var cmd *exec.Cmd
+	if ctx == nil {
+		cmd = exec.Command(command[0], command[1:]...)
+	} else {
+		cmd = exec.CommandContext(ctx, command[0], command[1:]...)
+	}
+
 	// if using tty in unix, github.com/creack/pty will Setsid, and if we
 	// Setpgid, will fail the process creation
 	cmd.SysProcAttr = getSysProcAttr(tty)
@@ -59,7 +67,7 @@ func Do(s Spec) (int, error) {
 		return DefaultExitCodeOnError, fmt.Errorf("empty command: %w", wellknownerrors.ErrInvalidOperation)
 	}
 
-	cmd := Prepare(s.Command, s.Tty, s.Env)
+	cmd := Prepare(s.Context, s.Command, s.Tty, s.Env)
 	if s.Tty {
 		cleanup, err := startCmdWithTty(s.Logger, cmd, s.Stdin, s.Stdout, s.OnResizeSignal)
 		if err != nil {
