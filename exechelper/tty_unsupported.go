@@ -6,6 +6,7 @@ import (
 	"io"
 	"os/exec"
 
+	"arhat.dev/pkg/log"
 	"arhat.dev/pkg/wellknownerrors"
 )
 
