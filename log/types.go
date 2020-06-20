@@ -27,3 +27,12 @@ type Interface interface {
 	// Flush logger
 	Flush() error
 }
+
+type Structure struct {
+	Msg        string `json:"M,omitempty"`
+	Level      string `json:"L,omitempty"`
+	Time       string `json:"T,omitempty"`
+	Name       string `json:"N,omitempty"`
+	Caller     string `json:"C,omitempty"`
+	Stacktrace string `json:"S,omitempty"`
+}
