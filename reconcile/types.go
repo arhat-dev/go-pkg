@@ -35,6 +35,7 @@ func (o Options) ResolveNil() *Options {
 		Logger:          o.Logger,
 		BackoffStrategy: o.BackoffStrategy,
 		Workers:         o.Workers,
+		RequireCache:    o.RequireCache,
 		Handlers:        o.Handlers,
 		OnBackoffStart:  o.OnBackoffStart,
 		OnBackoffReset:  o.OnBackoffReset,
