@@ -209,7 +209,7 @@ func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
 				t.dataFull = make(chan struct{})
 			}
 
-			if size == 0 {
+			if size == 0 && t.Error() == nil {
 				t.hasData = make(chan struct{})
 			}
 
