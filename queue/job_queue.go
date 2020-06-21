@@ -117,16 +117,23 @@ func (q *JobQueue) add(w Job) {
 	q.queue = append(q.queue, w)
 }
 
-func (q *JobQueue) delete(action JobAction, key interface{}) {
+func (q *JobQueue) delete(action JobAction, key interface{}) bool {
 	jobToDelete := Job{Action: action, Key: key}
 	if idx, ok := q.index[jobToDelete]; ok {
 		delete(q.index, jobToDelete)
 		q.queue = append(q.queue[:idx], q.queue[idx+1:]...)
 
-		// refresh index
-		for i, w := range q.queue {
-			q.index[w] = i
-		}
+		q.buildIndex()
+
+		return true
+	}
+
+	return false
+}
+
+func (q *JobQueue) buildIndex() {
+	for i, w := range q.queue {
+		q.index[w] = i
 	}
 }
 
@@ -286,15 +293,7 @@ func (q *JobQueue) Remove(w Job) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	i, ok := q.index[w]
-	if !ok {
-		return false
-	}
-
-	q.queue = append(q.queue[:i], q.queue[i+1:]...)
-	delete(q.index, w)
-
-	return true
+	return q.delete(w.Action, w.Key)
 }
 
 func (q *JobQueue) isClosed() bool {
