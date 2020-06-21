@@ -34,7 +34,7 @@ func TestReadWithTimeout(t *testing.T) {
 	r := iohelper.NewTimeoutReader(strings.NewReader(input), len(input)+1)
 	go r.StartBackgroundReading()
 
-	data := r.ReadUntilTimeout(time.After(time.Second))
+	data, _ := r.ReadUntilTimeout(time.After(time.Second))
 	assert.Equal(t, io.EOF, r.Error())
 	assert.Equal(t, input, string(data))
 	if elp := time.Now().Sub(startTime); elp < time.Second {
@@ -45,7 +45,7 @@ func TestReadWithTimeout(t *testing.T) {
 	go r.StartBackgroundReading()
 
 	startTime = time.Now()
-	data = r.ReadUntilTimeout(time.After(time.Second))
+	data, _ = r.ReadUntilTimeout(time.After(time.Second))
 	assert.Equal(t, io.EOF, r.Error())
 	assert.Equal(t, input[:len(input)-1], string(data))
 	if elp := time.Now().Sub(startTime); elp > time.Millisecond {
@@ -68,7 +68,7 @@ func TestReadWithTimeout(t *testing.T) {
 
 	var count int
 	for r.WaitUntilHasData(stopSig) {
-		data := r.ReadUntilTimeout(time.After(time.Millisecond))
+		data, _ := r.ReadUntilTimeout(time.After(time.Millisecond))
 		assert.NotNil(t, data)
 		count++
 	}

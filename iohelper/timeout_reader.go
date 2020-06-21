@@ -168,8 +168,7 @@ func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
 // or
 //
 // the stop signaled, but buffer is not full, will return all buffered data
-func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
-	var timedOut bool
+func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) (data []byte, isTimeout bool) {
 	for {
 		// take a snapshot for the size of buffered data
 		t.mu.RLock()
@@ -182,9 +181,9 @@ func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
 		}
 
 		switch {
-		case n == t.chunkSize, timedOut:
+		case n == t.chunkSize, isTimeout:
 			if n == 0 {
-				return nil
+				return
 			}
 
 			if size < n {
@@ -193,7 +192,7 @@ func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
 
 			t.mu.Lock()
 
-			data := t.buf[:n]
+			data = t.buf[:n]
 			t.buf = t.buf[n:]
 
 			size = len(t.buf)
@@ -206,12 +205,12 @@ func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
 			}
 
 			t.mu.Unlock()
-			return data
+			return
 		}
 
 		select {
 		case <-stop:
-			timedOut = true
+			isTimeout = true
 		case <-t.dataFull:
 			// wait until data full
 		}
