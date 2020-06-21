@@ -81,7 +81,7 @@ func (t *TimeoutReader) StartBackgroundReading() {
 	oneByte := make([]byte, 1)
 	for {
 		// read one byte a time to avoid being blocked
-		n, err = io.ReadFull(t.r, oneByte)
+		n, err = t.r.Read(oneByte)
 		switch n {
 		case 0:
 			// no bytes read or error happened
@@ -131,17 +131,9 @@ func (t *TimeoutReader) StartBackgroundReading() {
 func (t *TimeoutReader) hasDataInBuf() bool {
 	// take a snapshot of the channel pointer in case it got closed and recreated
 	t.mu.RLock()
-	hasData := t.hasData
-	t.mu.RUnlock()
+	defer t.mu.RUnlock()
 
-	select {
-	case <-hasData:
-		t.mu.RLock()
-		defer t.mu.RUnlock()
-		return len(t.buf) != 0
-	default:
-		return false
-	}
+	return len(t.buf) != 0
 }
 
 // WaitUntilHasData is a helper function used to check if there is data available,
@@ -182,9 +174,9 @@ func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
 		// take a snapshot for the size of buffered data
 		t.mu.RLock()
 		size := len(t.buf)
-		n := size
 		t.mu.RUnlock()
 
+		n := size
 		if n > t.chunkSize {
 			n = t.chunkSize
 		}
@@ -195,11 +187,11 @@ func (t *TimeoutReader) ReadUntilTimeout(stop <-chan time.Time) []byte {
 				return nil
 			}
 
-			t.mu.Lock()
-
 			if size < n {
 				n = size
 			}
+
+			t.mu.Lock()
 
 			data := t.buf[:n]
 			t.buf = t.buf[n:]
