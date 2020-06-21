@@ -20,6 +20,7 @@ package reconcile
 
 import (
 	"context"
+	"errors"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubecache "k8s.io/client-go/tools/cache"
@@ -56,41 +57,33 @@ type KubeInformerReconciler struct {
 }
 
 func (r *KubeInformerReconciler) getInformerAddEventFunc() func(interface{}) {
-	logger := r.log.WithFields(log.String("func", "add"))
+	logger := r.log.WithFields(log.String("informer", "add"))
 	return func(obj interface{}) {
-		key, err := r.getKeyOfObject(obj)
-		if err != nil {
-			logger.I("failed to get key for object", log.Error(err), log.Any("obj", obj))
-			return
-		}
+		key := r.GetKey(obj)
 
 		logger := logger.WithFields(log.Any("key", key))
 
 		r.Core.Update(key, nil, obj)
 		logger.V("scheduling create job")
-		err = r.Core.Schedule(queue.Job{Action: queue.ActionAdd, Key: key}, 0)
-		if err != nil {
-			logger.I("failed to schedule create job", log.Error(err))
+		err := r.Core.Schedule(queue.Job{Action: queue.ActionAdd, Key: key}, 0)
+		if err != nil && !errors.Is(err, queue.ErrJobDuplicated) {
+			logger.D("failed to schedule create job", log.Error(err))
 		}
 	}
 }
 
 func (r *KubeInformerReconciler) getInformerUpdateEventFunc() func(old, new interface{}) {
-	logger := r.log.WithFields(log.String("func", "update"))
+	logger := r.log.WithFields(log.String("informer", "update"))
 	return func(old, new interface{}) {
-		key, err := r.getKeyOfObject(old)
-		if err != nil {
-			logger.I("failed to get key for object", log.Error(err), log.Any("obj", old))
-			return
-		}
+		key := r.GetKey(old)
+
+		logger := logger.WithFields(log.Any("key", key))
 
 		o, err := meta.Accessor(new)
 		if err != nil {
-			logger.I("failed to access object meta", log.Error(err))
+			logger.D("failed to access object meta", log.Error(err))
 			return
 		}
-
-		logger := logger.WithFields(log.Any("key", key))
 
 		r.Core.Update(key, old, new)
 		ts := o.GetDeletionTimestamp()
@@ -98,8 +91,8 @@ func (r *KubeInformerReconciler) getInformerUpdateEventFunc() func(old, new inte
 			// to be deleted
 			logger.V("scheduling delete job")
 			err = r.Core.Schedule(queue.Job{Action: queue.ActionDelete, Key: key}, 0)
-			if err != nil {
-				logger.I("failed to schedule delete job", log.Error(err))
+			if err != nil && !errors.Is(err, queue.ErrJobDuplicated) {
+				logger.D("failed to schedule delete job", log.Error(err))
 			}
 		} else {
 			// need to keep old object until user defined update operation is successful
@@ -109,14 +102,14 @@ func (r *KubeInformerReconciler) getInformerUpdateEventFunc() func(old, new inte
 			logger.V("scheduling update job")
 			err = r.Core.Schedule(queue.Job{Action: queue.ActionUpdate, Key: key}, 0)
 			if err != nil {
-				logger.I("failed to schedule update job", log.Error(err))
+				logger.D("failed to schedule update job", log.Error(err))
 			}
 		}
 	}
 }
 
 func (r *KubeInformerReconciler) getInformerDeleteEventFunc() func(interface{}) {
-	logger := r.log.WithFields(log.String("func", "delete"))
+	logger := r.log.WithFields(log.String("informer", "delete"))
 	return func(obj interface{}) {
 		var key string
 		dfsu, ok := obj.(kubecache.DeletedFinalStateUnknown)
@@ -124,12 +117,13 @@ func (r *KubeInformerReconciler) getInformerDeleteEventFunc() func(interface{}) 
 			key = dfsu.Key
 			obj = dfsu.Obj
 		} else {
-			var err error
-			key, err = r.getKeyOfObject(obj)
-			if err != nil {
-				logger.I("failed to get key for object", log.Error(err), log.Any("obj", obj))
-				return
-			}
+			defer func() {
+				err := recover()
+				if err != nil {
+					logger.V("failed to get key for object", log.Any("object", obj))
+				}
+			}()
+			key = r.GetKey(obj)
 		}
 
 		logger := logger.WithFields(log.Any("key", key))
@@ -137,12 +131,17 @@ func (r *KubeInformerReconciler) getInformerDeleteEventFunc() func(interface{}) 
 		r.Core.Update(key, nil, obj)
 		logger.V("scheduling cleanup job")
 		err := r.Core.Schedule(queue.Job{Action: queue.ActionCleanup, Key: key}, 0)
-		if err != nil {
-			logger.I("failed to schedule cleanup job", log.Error(err))
+		if err != nil && !errors.Is(err, queue.ErrJobDuplicated) {
+			logger.D("failed to schedule cleanup job", log.Error(err))
 		}
 	}
 }
 
-func (r *KubeInformerReconciler) getKeyOfObject(obj interface{}) (string, error) {
-	return kubecache.MetaNamespaceKeyFunc(obj)
+func (r *KubeInformerReconciler) GetKey(obj interface{}) string {
+	key, err := kubecache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		panic(err)
+	}
+
+	return key
 }
