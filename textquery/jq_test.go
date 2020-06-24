@@ -93,8 +93,13 @@ func TestJQTemplateFunc(t *testing.T) {
 			input:               `{"data": "data"}`,
 			expectedUnmarshaled: base64.StdEncoding.EncodeToString([]byte("data")),
 		},
+		{
+			name:                "Compare",
+			query:               `. > 1`,
+			input:               `12`,
+			expectedUnmarshaled: true,
+		},
 	}
-	//_ = tests
 
 	fm := map[string]interface{}{
 		"jq":      JQ,
