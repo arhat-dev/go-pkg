@@ -168,11 +168,11 @@ handleResult:
 			delay = c.backoff.Next(job.Key)
 		}
 
-		if delay != 0 {
+		if delay != 0 && c.onBackoffStart != nil {
 			c.onBackoffStart(job.Key, result.Err)
 		}
 	} else {
-		if c.backoff.Reset(job.Key) {
+		if c.backoff.Reset(job.Key) && c.onBackoffReset != nil {
 			c.onBackoffReset(job.Key)
 		}
 	}
