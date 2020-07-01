@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/creack/pty v1.1.11
-	github.com/itchyny/gojq v0.10.4-0.20200624222628-2ab4c4d21ccb
+	github.com/itchyny/gojq v0.10.4
 	github.com/prometheus/client_golang v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
