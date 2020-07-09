@@ -5,20 +5,15 @@ package confhelper
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/pflag"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
 	"arhat.dev/pkg/envhelper"
-	"arhat.dev/pkg/log"
 )
 
 func FlagsForLeaderElection(name, prefix string, c *LeaderElectionConfig) *pflag.FlagSet {
@@ -55,41 +50,48 @@ type LeaderElectionConfig struct {
 	} `json:"lock" yaml:"lock"`
 }
 
-func (c *LeaderElectionConfig) RunOrDie(appCtx context.Context, name string, logger log.Interface, kubeClient kubernetes.Interface, onElected func(context.Context), onEjected func()) {
-	// become the leader before proceeding
-	evb := record.NewBroadcaster()
-	_ = evb.StartLogging(func(format string, args ...interface{}) {
-		logger.I(fmt.Sprintf(format, args...), log.String("source", "event"))
-	})
-	_ = evb.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events(envhelper.ThisPodNS())})
-
-	rl, err := resourcelock.New(c.Lock.Type,
+func (c *LeaderElectionConfig) CreateElector(
+	name string,
+	kubeClient kubernetes.Interface,
+	eventRecorder record.EventRecorder,
+	onElected func(context.Context),
+	onEjected func(),
+	onNewLeader func(identity string),
+) (*leaderelection.LeaderElector, error) {
+	lock, err := resourcelock.New(c.Lock.Type,
 		c.Lock.Namespace,
 		c.Lock.Name,
 		kubeClient.CoreV1(),
 		kubeClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      c.Identity,
-			EventRecorder: evb.NewRecorder(scheme.Scheme, corev1.EventSource{Component: name}),
-		})
+			EventRecorder: eventRecorder,
+		},
+	)
 
 	if err != nil {
-		logger.E("failed to create leader-election lock", log.Error(err))
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to create resource lock: %w", err)
 	}
 
-	leaderelection.RunOrDie(appCtx, leaderelection.LeaderElectionConfig{
+	elector, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
 		Name:            name,
 		WatchDog:        leaderelection.NewLeaderHealthzAdaptor(c.Lease.ExpiryToleration),
-		Lock:            rl,
+		Lock:            lock,
 		LeaseDuration:   c.Lease.Expiration,
 		RenewDeadline:   c.Lease.RenewTimeout,
 		RetryPeriod:     c.Lease.RetryInterval,
-		ReleaseOnCancel: false,
+		ReleaseOnCancel: true,
 
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: onElected,
 			OnStoppedLeading: onEjected,
+			OnNewLeader:      onNewLeader,
 		},
 	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create leader elector: %w", err)
+	}
+
+	return elector, nil
 }

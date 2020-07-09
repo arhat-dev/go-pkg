@@ -17,7 +17,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
 	google.golang.org/grpc v1.27.1
-	k8s.io/api v0.18.3
-	k8s.io/apimachinery v0.18.3
-	k8s.io/client-go v0.18.3
+	k8s.io/api v0.18.5
+	k8s.io/apimachinery v0.18.5
+	k8s.io/client-go v0.18.5
 )
