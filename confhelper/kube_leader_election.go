@@ -16,38 +16,55 @@ import (
 	"arhat.dev/pkg/envhelper"
 )
 
-func FlagsForLeaderElection(name, prefix string, c *LeaderElectionConfig) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("kube.leader-election", pflag.ExitOnError)
+type LeaderElectionLockConfig struct {
+	Name      string `json:"name" yaml:"name"`
+	Namespace string `json:"namespace" yaml:"namespace"`
+	Type      string `json:"type" yaml:"type"`
+}
 
-	fs.StringVar(&c.Identity, prefix+"identity", envhelper.ThisPodName(), "set identity used for leader election")
+func FlagsForLeaderElectionLock(name, prefix string, c *LeaderElectionLockConfig) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("leader-election-lock", pflag.ExitOnError)
+
 	// lock
-	fs.StringVar(&c.Lock.Type, prefix+"lock.type", "leases", "set resource lock type for leader election, possible values are [configmaps, endpoints, leases, configmapsleases, endpointsleases]")
-	fs.StringVar(&c.Lock.Name, prefix+"lock.name", fmt.Sprintf("%s-leader-election", name), "set resource lock name")
-	fs.StringVar(&c.Lock.Namespace, prefix+"lock.namespace", envhelper.ThisPodNS(), "set resource lock namespace")
-	// lease
-	fs.DurationVar(&c.Lease.Expiration, prefix+"lease.expiration", 15*time.Second, "set duration a lease is valid")
-	fs.DurationVar(&c.Lease.RetryInterval, prefix+"lease.retryInterval", 1*time.Second, "set intervals between failed lease renew")
-	fs.DurationVar(&c.Lease.RenewTimeout, prefix+"lease.renewTimeout", 5*time.Second, "set timeout duration for lease renew")
-	fs.DurationVar(&c.Lease.ExpiryToleration, prefix+"lease.expiryToleration", 10*time.Second, "set how long we will wait until try to acquire lease after lease has expired")
+	fs.StringVar(&c.Type, prefix+"lock.type", "leases", "set resource lock type for leader election, possible values are [configmaps, endpoints, leases, configmapsleases, endpointsleases]")
+	fs.StringVar(&c.Name, prefix+"lock.name", fmt.Sprintf("%s-leader-election", name), "set resource lock name")
+	fs.StringVar(&c.Namespace, prefix+"lock.namespace", envhelper.ThisPodNS(), "set resource lock namespace")
+
+	return fs
+}
+
+type LeaderElectionLeaseConfig struct {
+	Expiration       time.Duration `json:"expiration" yaml:"expiration"`
+	RenewDeadline    time.Duration `json:"renewDeadline" yaml:"renewDeadline"`
+	RenewInterval    time.Duration `json:"renewInterval" yaml:"renewInterval"`
+	ExpiryToleration time.Duration `json:"expiryToleration" yaml:"expiryToleration"`
+}
+
+func FlagsForLeaderElectionLease(prefix string, c *LeaderElectionLeaseConfig) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("leader-election-lease", pflag.ExitOnError)
+
+	fs.DurationVar(&c.Expiration, prefix+"expiration", 15*time.Second, "set duration a lease is valid for, all non-leader need to wait at least this long to attempt to become leader")
+	fs.DurationVar(&c.RenewDeadline, prefix+"renewDeadline", 10*time.Second, "set max time duration for a successful renew, or will lose leader election, MUST < expiration")
+	fs.DurationVar(&c.RenewInterval, prefix+"renewInterval", 2*time.Second, "set intervals between renew operations (update lock resource)")
+	fs.DurationVar(&c.ExpiryToleration, prefix+"expiryToleration", 10*time.Second, "set how long we will wait until try to acquire lease after lease has expired")
 
 	return fs
 }
 
 type LeaderElectionConfig struct {
-	Identity string `json:"identity" yaml:"identity"`
+	Identity string                    `json:"identity" yaml:"identity"`
+	Lock     LeaderElectionLockConfig  `json:"lock" yaml:"lock"`
+	Lease    LeaderElectionLeaseConfig `json:"lease" yaml:"lease"`
+}
 
-	Lease struct {
-		Expiration       time.Duration `json:"expiration" yaml:"expiration"`
-		RenewTimeout     time.Duration `json:"renewTimeout" yaml:"renewTimeout"`
-		RetryInterval    time.Duration `json:"retryInterval" yaml:"retryInterval"`
-		ExpiryToleration time.Duration `json:"expiryToleration" yaml:"expiryToleration"`
-	} `json:"lease" yaml:"lease"`
+func FlagsForLeaderElection(name, prefix string, c *LeaderElectionConfig) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("leader-election", pflag.ExitOnError)
 
-	Lock struct {
-		Name      string `json:"name" yaml:"name"`
-		Namespace string `json:"namespace" yaml:"namespace"`
-		Type      string `json:"type" yaml:"type"`
-	} `json:"lock" yaml:"lock"`
+	fs.StringVar(&c.Identity, prefix+"identity", envhelper.ThisPodName(), "set identity used for leader election")
+	fs.AddFlagSet(FlagsForLeaderElectionLock(name, prefix+"lock.", &c.Lock))
+	fs.AddFlagSet(FlagsForLeaderElectionLease(prefix+"lease.", &c.Lease))
+
+	return fs
 }
 
 func (c *LeaderElectionConfig) CreateElector(
@@ -78,8 +95,8 @@ func (c *LeaderElectionConfig) CreateElector(
 		WatchDog:        leaderelection.NewLeaderHealthzAdaptor(c.Lease.ExpiryToleration),
 		Lock:            lock,
 		LeaseDuration:   c.Lease.Expiration,
-		RenewDeadline:   c.Lease.RenewTimeout,
-		RetryPeriod:     c.Lease.RetryInterval,
+		RenewDeadline:   c.Lease.RenewDeadline,
+		RetryPeriod:     c.Lease.RenewInterval,
 		ReleaseOnCancel: true,
 
 		Callbacks: leaderelection.LeaderCallbacks{
