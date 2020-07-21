@@ -32,7 +32,7 @@ func FlagsForMetrics(prefix string, c *MetricsConfig) *pflag.FlagSet {
 	fs.StringVar(&c.Endpoint, prefix+"listen", ":9876", "set address:port for telemetry endpoint")
 	fs.StringVar(&c.HttpPath, prefix+"httpPath", "/metrics", "set http path for metrics collection")
 	fs.StringVar(&c.Format, prefix+"format", "prometheus", "set metrics format")
-	fs.AddFlagSet(FlagsForTLSConfig(prefix+"tls", &c.TLS))
+	fs.AddFlagSet(FlagsForTLSConfig(prefix+"tls.", &c.TLS))
 
 	return fs
 }
