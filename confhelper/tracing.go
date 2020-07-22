@@ -29,10 +29,12 @@ func FlagsForTracing(prefix string, c *TracingConfig) *pflag.FlagSet {
 
 	fs.BoolVar(&c.Enabled, prefix+"enabled", false, "enable tracing")
 	fs.StringVar(&c.Format, prefix+"format", "jaeger", "set tracing stats format")
-	fs.StringVar(&c.EndpointType, prefix+"endpointType", "agent", "set endpoint type of collector (only used for jaeger)")
+	fs.StringVar(&c.EndpointType, prefix+"endpointType", "agent",
+		"set endpoint type of collector (only used for jaeger)")
 	fs.StringVar(&c.Endpoint, prefix+"endpoint", "", "set collector endpoint for tracing stats collection")
 	fs.Float64Var(&c.SampleRate, prefix+"sampleRate", 1.0, "set tracing sample rate")
-	fs.StringVar(&c.ReportedServiceName, prefix+"reportedServiceName", fmt.Sprintf("%s.%s", envhelper.ThisPodName(), envhelper.ThisPodNS()), "set service name used for tracing stats")
+	fs.StringVar(&c.ReportedServiceName, prefix+"reportedServiceName",
+		fmt.Sprintf("%s.%s", envhelper.ThisPodName(), envhelper.ThisPodNS()), "set service name used for tracing stats")
 	fs.AddFlagSet(FlagsForTLSConfig(prefix+"tls", &c.TLS))
 
 	return fs
@@ -61,7 +63,7 @@ type TracingConfig struct {
 	TLS TLSConfig `json:"tls" yaml:"tls"`
 }
 
-func (c *TracingConfig) newHttpClient(tlsConfig *tls.Config) *http.Client {
+func (c *TracingConfig) newHTTPClient(tlsConfig *tls.Config) *http.Client {
 	if tlsConfig != nil {
 		tlsConfig.NextProtos = []string{"h2", "http/1.1"}
 	}
@@ -141,7 +143,7 @@ func (c *TracingConfig) RegisterIfEnabled(ctx context.Context, logger log.Interf
 		var exporter *otexporterzipkin.Exporter
 
 		exporter, err = otexporterzipkin.NewExporter(c.Endpoint, c.ReportedServiceName,
-			otexporterzipkin.WithClient(c.newHttpClient(tlsConfig)),
+			otexporterzipkin.WithClient(c.newHTTPClient(tlsConfig)),
 			otexporterzipkin.WithLogger(nil),
 		)
 		if err != nil {
@@ -168,7 +170,7 @@ func (c *TracingConfig) RegisterIfEnabled(ctx context.Context, logger log.Interf
 			otexporterjaeger.WithCollectorEndpoint(c.Endpoint,
 				otexporterjaeger.WithUsername(os.Getenv("JAEGER_COLLECTOR_USERNAME")),
 				otexporterjaeger.WithPassword(os.Getenv("JAEGER_COLLECTOR_PASSWORD")),
-				otexporterjaeger.WithHTTPClient(c.newHttpClient(tlsConfig)),
+				otexporterjaeger.WithHTTPClient(c.newHTTPClient(tlsConfig)),
 			)
 		default:
 			return fmt.Errorf("unsupported tracing endpoint type %q", c.EndpointType)

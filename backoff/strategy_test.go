@@ -39,6 +39,12 @@ func TestBackoff(t *testing.T) {
 		assert.Equal(t, time.Duration(math.Pow(2, float64(i))*float64(time.Second)), b.Next(key))
 	}
 
-	b.Reset(key)
+	for i := 0; i <= 10; i++ {
+		assert.Equal(t, 1024*time.Second, b.Next(key))
+	}
+
+	assert.True(t, b.Reset(key))
 	assert.Equal(t, time.Duration(0), b.Next(key))
+
+	assert.False(t, b.Reset("bar"))
 }

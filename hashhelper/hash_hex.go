@@ -9,18 +9,18 @@ import (
 
 func Sha256SumHex(data []byte) string {
 	h := sha256.New()
-	h.Write(data)
+	_, _ = h.Write(data)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
 func Sha512SumHex(data []byte) string {
 	h := sha512.New()
-	h.Write(data)
+	_, _ = h.Write(data)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
 func MD5SumHex(data []byte) string {
 	h := md5.New()
-	h.Write(data)
+	_, _ = h.Write(data)
 	return hex.EncodeToString(h.Sum(nil))
 }

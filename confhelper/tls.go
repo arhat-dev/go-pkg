@@ -26,8 +26,10 @@ func FlagsForTLSConfig(prefix string, config *TLSConfig) *pflag.FlagSet {
 	fs.StringSliceVar(&config.CipherSuites, prefix+"cipherSuites", nil, "set acceptable cipher suites")
 
 	fs.BoolVar(&config.AllowInsecureHashes, prefix+"allowInsecureHashes", false, "allow insecure dtls hash functions")
-	fs.StringVar(&config.PreSharedKey.IdentityHint, prefix+"preSharedKey.identityHint", "", "set identity hint for pre shared key")
-	fs.StringSliceVar(&config.PreSharedKey.ServerHintMapping, prefix+"preSharedKey.serverHintMapping", nil, "set server hint to key mapping")
+	fs.StringVar(&config.PreSharedKey.IdentityHint, prefix+"preSharedKey.identityHint", "",
+		"set identity hint for pre shared key")
+	fs.StringSliceVar(&config.PreSharedKey.ServerHintMapping, prefix+"preSharedKey.serverHintMapping", nil,
+		"set server hint to key mapping")
 
 	return fs
 }
@@ -88,6 +90,7 @@ var cipherSuites = map[string]uint16{
 	"TLS_PSK_WITH_AES_128_GCM_SHA256": 0x00a8,
 }
 
+//nolint:maligned
 type TLSConfig struct {
 	Enabled            bool   `json:"enabled" yaml:"enabled"`
 	CaCert             string `json:"caCert" yaml:"caCert"`
@@ -161,17 +164,16 @@ func (c TLSConfig) GetTLSConfig() (_ *tls.Config, err error) {
 		block, _ := pem.Decode(caBytes)
 		if block == nil {
 			// not encoded in pem format
-			caCerts, err := x509.ParseCertificates(caBytes)
+			var caCerts []*x509.Certificate
+			caCerts, err = x509.ParseCertificates(caBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse ca certs: %w", err)
 			}
 			for i := range caCerts {
 				tlsConfig.RootCAs.AddCert(caCerts[i])
 			}
-		} else {
-			if !tlsConfig.RootCAs.AppendCertsFromPEM(caBytes) {
-				return nil, fmt.Errorf("failed to add pem formated ca certs")
-			}
+		} else if !tlsConfig.RootCAs.AppendCertsFromPEM(caBytes) {
+			return nil, fmt.Errorf("failed to add pem formated ca certs")
 		}
 	}
 

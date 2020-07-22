@@ -26,7 +26,9 @@ func FlagsForLeaderElectionLock(name, prefix string, c *LeaderElectionLockConfig
 	fs := pflag.NewFlagSet("leader-election-lock", pflag.ExitOnError)
 
 	// lock
-	fs.StringVar(&c.Type, prefix+"lock.type", "leases", "set resource lock type for leader election, possible values are [configmaps, endpoints, leases, configmapsleases, endpointsleases]")
+	fs.StringVar(&c.Type, prefix+"lock.type", "leases",
+		"set resource lock type for leader election, possible values are "+
+			"[configmaps, endpoints, leases, configmapsleases, endpointsleases]")
 	fs.StringVar(&c.Name, prefix+"lock.name", fmt.Sprintf("%s-leader-election", name), "set resource lock name")
 	fs.StringVar(&c.Namespace, prefix+"lock.namespace", envhelper.ThisPodNS(), "set resource lock namespace")
 
@@ -43,10 +45,14 @@ type LeaderElectionLeaseConfig struct {
 func FlagsForLeaderElectionLease(prefix string, c *LeaderElectionLeaseConfig) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("leader-election-lease", pflag.ExitOnError)
 
-	fs.DurationVar(&c.Expiration, prefix+"expiration", 15*time.Second, "set duration a lease is valid for, all non-leader need to wait at least this long to attempt to become leader")
-	fs.DurationVar(&c.RenewDeadline, prefix+"renewDeadline", 10*time.Second, "set max time duration for a successful renew, or will lose leader election, MUST < expiration")
-	fs.DurationVar(&c.RenewInterval, prefix+"renewInterval", 2*time.Second, "set intervals between renew operations (update lock resource)")
-	fs.DurationVar(&c.ExpiryToleration, prefix+"expiryToleration", 10*time.Second, "set how long we will wait until try to acquire lease after lease has expired")
+	fs.DurationVar(&c.Expiration, prefix+"expiration", 15*time.Second,
+		"set duration a lease is valid for, all non-leader need to wait at least this long to attempt to become leader")
+	fs.DurationVar(&c.RenewDeadline, prefix+"renewDeadline", 10*time.Second,
+		"set max time duration for a successful renew, or will lose leader election, MUST < expiration")
+	fs.DurationVar(&c.RenewInterval, prefix+"renewInterval", 2*time.Second,
+		"set intervals between renew operations (update lock resource)")
+	fs.DurationVar(&c.ExpiryToleration, prefix+"expiryToleration", 10*time.Second,
+		"set how long we will wait until try to acquire lease after lease has expired")
 
 	return fs
 }

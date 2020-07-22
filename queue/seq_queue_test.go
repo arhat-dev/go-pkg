@@ -40,12 +40,14 @@ func TestSeqQueue(t *testing.T) {
 		assert.False(t, completed)
 	}
 
-	data, completed := q.Offer(uint64(0), 0)
-	assert.NotNil(t, data)
-	assert.Equal(t, N, len(data))
-	assert.False(t, completed)
-	for i, d := range data {
-		assert.Equal(t, i, d.(int))
+	{
+		data, completed := q.Offer(uint64(0), 0)
+		assert.NotNil(t, data)
+		assert.Equal(t, N, len(data))
+		assert.False(t, completed)
+		for i, d := range data {
+			assert.Equal(t, i, d.(int))
+		}
 	}
 
 	q.Reset()
@@ -56,7 +58,7 @@ func TestSeqQueue(t *testing.T) {
 		assert.False(t, completed)
 	}
 	for i := 0; i < N; i++ {
-		data, completed = q.Offer(0, 0)
+		data, completed := q.Offer(0, 0)
 		assert.Nil(t, data)
 		assert.False(t, completed)
 	}
@@ -68,7 +70,7 @@ func TestSeqQueue(t *testing.T) {
 		assert.False(t, completed)
 	}
 
-	completed = q.SetMaxSeq(1)
+	completed := q.SetMaxSeq(1)
 	assert.False(t, completed)
 
 	completed = q.SetMaxSeq(N)
@@ -78,7 +80,8 @@ func TestSeqQueue(t *testing.T) {
 	assert.False(t, completed)
 
 	for i := 0; i < N/2; i += 2 {
-		data, completed := q.Offer(uint64(i), i)
+		var data []interface{}
+		data, completed = q.Offer(uint64(i), i)
 		assert.Equal(t, 2, len(data))
 		assert.Equal(t, i, data[0].(int))
 		assert.Equal(t, i+1, data[1].(int))

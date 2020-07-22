@@ -57,11 +57,11 @@ type KubeInformerReconciler struct {
 }
 
 func (r *KubeInformerReconciler) getInformerAddEventFunc() func(interface{}) {
-	logger := r.log.WithFields(log.String("informer", "add"))
+	baseLogger := r.log.WithFields(log.String("informer", "add"))
 	return func(obj interface{}) {
 		key := r.GetKey(obj)
 
-		logger := logger.WithFields(log.Any("key", key))
+		logger := baseLogger.WithFields(log.Any("key", key))
 
 		r.Core.Update(key, nil, obj)
 		logger.V("scheduling create job")
@@ -73,11 +73,11 @@ func (r *KubeInformerReconciler) getInformerAddEventFunc() func(interface{}) {
 }
 
 func (r *KubeInformerReconciler) getInformerUpdateEventFunc() func(old, new interface{}) {
-	logger := r.log.WithFields(log.String("informer", "update"))
+	baseLogger := r.log.WithFields(log.String("informer", "update"))
 	return func(old, new interface{}) {
 		key := r.GetKey(old)
 
-		logger := logger.WithFields(log.Any("key", key))
+		logger := baseLogger.WithFields(log.Any("key", key))
 
 		o, err := meta.Accessor(new)
 		if err != nil {
@@ -109,7 +109,7 @@ func (r *KubeInformerReconciler) getInformerUpdateEventFunc() func(old, new inte
 }
 
 func (r *KubeInformerReconciler) getInformerDeleteEventFunc() func(interface{}) {
-	logger := r.log.WithFields(log.String("informer", "delete"))
+	baseLogger := r.log.WithFields(log.String("informer", "delete"))
 	return func(obj interface{}) {
 		var key string
 		dfsu, ok := obj.(kubecache.DeletedFinalStateUnknown)
@@ -120,13 +120,13 @@ func (r *KubeInformerReconciler) getInformerDeleteEventFunc() func(interface{}) 
 			defer func() {
 				err := recover()
 				if err != nil {
-					logger.V("failed to get key for object", log.Any("object", obj))
+					baseLogger.V("failed to get key for object", log.Any("object", obj))
 				}
 			}()
 			key = r.GetKey(obj)
 		}
 
-		logger := logger.WithFields(log.Any("key", key))
+		logger := baseLogger.WithFields(log.Any("key", key))
 
 		r.Core.Update(key, nil, obj)
 		logger.V("scheduling cleanup job")

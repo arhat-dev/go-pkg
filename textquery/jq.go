@@ -26,12 +26,23 @@ func JQBytes(query string, input []byte) (string, error) {
 	}
 
 	var data interface{}
-	data = make(map[string]interface{})
-	err = decodehelper.UnmarshalJSON(input, &data)
+
+	mapData := make(map[string]interface{})
+	err = decodehelper.UnmarshalJSON(input, &mapData)
+	data = mapData
+
 	if err != nil {
 		// maybe it's an array
-		data = []interface{}{}
-		err = decodehelper.UnmarshalJSON(input, &data)
+		var arrayData []interface{}
+		err = decodehelper.UnmarshalJSON(input, &arrayData)
+		data = arrayData
+	}
+
+	if err != nil {
+		// maybe it's anything else
+		var anyData interface{}
+		err = decodehelper.UnmarshalJSON(input, &anyData)
+		data = anyData
 	}
 
 	if err != nil {

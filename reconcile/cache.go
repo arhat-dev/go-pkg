@@ -39,11 +39,9 @@ func (r *Cache) Update(key interface{}, old, latest interface{}) {
 	if _, frozen := r.frozenOldCacheKeys[key]; !frozen {
 		if old != nil {
 			r.oldCache[key] = old
-		} else {
+		} else if o, ok := r.cache[key]; ok {
 			// move cached to old cached
-			if o, ok := r.cache[key]; ok {
-				r.oldCache[key] = o
-			}
+			r.oldCache[key] = o
 		}
 	}
 

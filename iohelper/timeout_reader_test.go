@@ -37,7 +37,7 @@ func TestReadWithTimeout(t *testing.T) {
 	data, _ := r.ReadUntilTimeout(time.After(time.Second))
 	assert.Equal(t, io.EOF, r.Error())
 	assert.Equal(t, input, string(data))
-	if elp := time.Now().Sub(startTime); elp < time.Second {
+	if elp := time.Since(startTime); elp < time.Second {
 		assert.FailNow(t, "timout failed", "elp", elp)
 	}
 
@@ -48,7 +48,7 @@ func TestReadWithTimeout(t *testing.T) {
 	data, _ = r.ReadUntilTimeout(time.After(time.Second))
 	assert.Equal(t, io.EOF, r.Error())
 	assert.Equal(t, input[:len(input)-1], string(data))
-	if elp := time.Now().Sub(startTime); elp > time.Millisecond {
+	if elp := time.Since(startTime); elp > time.Millisecond {
 		assert.FailNow(t, "non-timout failed", "elp", elp)
 	}
 
@@ -75,7 +75,7 @@ func TestReadWithTimeout(t *testing.T) {
 	assert.Equal(t, 10, count)
 	assert.Equal(t, io.EOF, r.Error())
 
-	if elp := time.Now().Sub(startTime); elp < time.Second {
+	if elp := time.Since(startTime); elp < time.Second {
 		assert.FailNow(t, "close failed", "elp", elp)
 	}
 }

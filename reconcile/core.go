@@ -171,10 +171,8 @@ handleResult:
 		if delay != 0 && c.onBackoffStart != nil {
 			c.onBackoffStart(job.Key, result.Err)
 		}
-	} else {
-		if c.backoff.Reset(job.Key) && c.onBackoffReset != nil {
-			c.onBackoffReset(job.Key)
-		}
+	} else if c.backoff.Reset(job.Key) && c.onBackoffReset != nil {
+		c.onBackoffReset(job.Key)
 	}
 
 	if nA == queue.ActionInvalid {

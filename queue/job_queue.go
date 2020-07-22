@@ -99,12 +99,11 @@ type JobQueue struct {
 	queue []Job
 	index map[Job]int
 
-	hasJob     chan struct{}
-	chanClosed bool
-	mu         *sync.RWMutex
-
+	hasJob chan struct{}
+	mu     *sync.RWMutex
 	// protected by atomic
-	closed uint32
+	closed     uint32
+	chanClosed bool
 }
 
 func (q *JobQueue) has(action JobAction, key interface{}) bool {

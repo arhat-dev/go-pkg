@@ -32,8 +32,6 @@ func BenchmarkTimeoutQueue(b *testing.B) {
 
 	wg := new(sync.WaitGroup)
 
-	b.N = 10000000
-
 	//wg.Add(1)
 	go func() {
 		//defer wg.Done()
@@ -101,7 +99,7 @@ func TestTimeoutQueue(t *testing.T) {
 		_ = q.OfferWithDelay(uint64(i), value, time.Duration(i+1)*10*time.Millisecond)
 	}
 
-	start = time.Now()
+	// start = time.Now()
 	for i := 0; i < N; i++ {
 		<-q.TakeCh()
 		// t.Logf("[%d] wait: %v", i, time.Since(start))
@@ -131,7 +129,7 @@ func TestTimeoutQueue(t *testing.T) {
 	for i := 0; i < N; i++ {
 		<-q.TakeCh()
 
-		dur := time.Since(start)
+		dur = time.Since(start)
 		if dur > 20*time.Millisecond {
 			assert.FailNow(t, "wait time exceeded")
 		}

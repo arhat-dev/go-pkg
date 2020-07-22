@@ -30,7 +30,7 @@ func FlagsForMetrics(prefix string, c *MetricsConfig) *pflag.FlagSet {
 
 	fs.BoolVar(&c.Enabled, prefix+"enabled", true, "enable metrics collection")
 	fs.StringVar(&c.Endpoint, prefix+"listen", ":9876", "set address:port for telemetry endpoint")
-	fs.StringVar(&c.HttpPath, prefix+"httpPath", "/metrics", "set http path for metrics collection")
+	fs.StringVar(&c.HTTPPath, prefix+"httpPath", "/metrics", "set http path for metrics collection")
 	fs.StringVar(&c.Format, prefix+"format", "prometheus", "set metrics format")
 	fs.AddFlagSet(FlagsForTLSConfig(prefix+"tls.", &c.TLS))
 
@@ -49,8 +49,8 @@ type MetricsConfig struct {
 	// Format of exposed metrics
 	Format string `json:"format" yaml:"format"`
 
-	// HttpPath for metrics collection
-	HttpPath string `json:"httpPath" yaml:"httpPath"`
+	// HTTPPath for metrics collection
+	HTTPPath string `json:"httpPath" yaml:"httpPath"`
 
 	// TLS config for client/server
 	TLS TLSConfig `json:"tls" yaml:"tls"`
@@ -125,7 +125,7 @@ func (c *MetricsConfig) RegisterIfEnabled(ctx context.Context, logger log.Interf
 		}
 
 		mux := http.NewServeMux()
-		mux.HandleFunc(c.HttpPath, func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc(c.HTTPPath, func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodGet {
 				http.Error(w, fmt.Sprintf("method %q not allowed", r.Method), http.StatusMethodNotAllowed)
 				return

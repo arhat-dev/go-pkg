@@ -119,7 +119,8 @@ func TestJQTemplateFunc(t *testing.T) {
 			case string:
 				expectedData = d
 			default:
-				data, err := json.Marshal(test.expectedUnmarshaled)
+				var data []byte
+				data, err = json.Marshal(test.expectedUnmarshaled)
 				assert.NoError(t, err)
 				expectedData = string(data)
 			}

@@ -11,7 +11,13 @@ import (
 	"arhat.dev/pkg/log"
 )
 
-func startCmdWithTty(logger log.Interface, cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, onResizeSig TtyResizeSignalFunc) (func(), error) {
+func startCmdWithTty(
+	logger log.Interface,
+	cmd *exec.Cmd,
+	stdin io.Reader,
+	stdout io.Writer,
+	onResizeSig TtyResizeSignalFunc,
+) (func(), error) {
 	f, err := pty.Start(cmd)
 	if err != nil {
 		return nil, err

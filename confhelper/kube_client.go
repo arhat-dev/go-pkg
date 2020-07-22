@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/flowcontrol"
@@ -24,13 +25,17 @@ func FlagsForKubeClient(prefix string, c *KubeClientConfig) *pflag.FlagSet {
 	return fs
 }
 
+type KubeClientRateLimitConfig struct {
+	Enabled bool    `json:"enabled" yaml:"enabled"`
+	QPS     float32 `json:"qps" yaml:"qps"`
+	Burst   int     `json:"burst" yaml:"burst"`
+}
+
 type KubeClientConfig struct {
-	KubeconfigPath string `json:"kubeconfig" yaml:"kubeconfig"`
-	RateLimit      struct {
-		Enabled bool    `json:"enabled" yaml:"enabled"`
-		QPS     float32 `json:"qps" yaml:"qps"`
-		Burst   int     `json:"burst" yaml:"burst"`
-	} `json:"rateLimit" yaml:"rateLimit"`
+	// Fake to create a fake client instead of creating real kubernetes client
+	Fake           bool                      `json:"fake" yaml:"fake"`
+	KubeconfigPath string                    `json:"kubeconfig" yaml:"kubeconfig"`
+	RateLimit      KubeClientRateLimitConfig `json:"rateLimit" yaml:"rateLimit"`
 }
 
 // NewKubeClient creates a kubernetes client with/without existing kubeconfig
@@ -38,7 +43,14 @@ type KubeClientConfig struct {
 // path and will fallback to in cluster kubeconfig
 // you can choose whether rate limit config is applied, if not, will use default
 // rate limit config
-func (c *KubeClientConfig) NewKubeClient(kubeconfig *rest.Config, applyRateLimitConfig bool) (client kubernetes.Interface, _ *rest.Config, err error) {
+func (c *KubeClientConfig) NewKubeClient(
+	kubeconfig *rest.Config,
+	applyRateLimitConfig bool,
+) (client kubernetes.Interface, _ *rest.Config, err error) {
+	if c.Fake {
+		return fake.NewSimpleClientset(), new(rest.Config), nil
+	}
+
 	if kubeconfig != nil {
 		kubeconfig = rest.CopyConfig(kubeconfig)
 	} else {

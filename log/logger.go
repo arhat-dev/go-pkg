@@ -134,7 +134,9 @@ func New(name string, config ConfigSet) (*Logger, error) {
 			return nil, err
 		}
 
-		subCores = append(subCores, zapcore.NewCore(getEncoder(c.Format), ws, getLevelEnablerFunc(parseZapLevel(c.Level))))
+		subCores = append(subCores,
+			zapcore.NewCore(getEncoder(c.Format), ws, getLevelEnablerFunc(parseZapLevel(c.Level))),
+		)
 	}
 	core := zapcore.NewTee(subCores...)
 	return &Logger{name: name, core: core}, nil
