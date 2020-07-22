@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  check_run:
+    types:
+    - rerequested
+    - requested_action
+  pull_request: {}
+  push:
+    branches:
+    - master
+    tags:
+    - v*
+    paths-ignore:
+    - 'docs/**'
+    - '*.md'
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        go: [ '1.14', '1.13' ]
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: install go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: lint
+      uses: golangci/golangci-lint-action@v2
+
+    - name: test
+      run: make test.unit
+
+    - name: coverage
+      uses: codecov/codecov-action@v1
+      with:
+        file: ./coverage.txt
+        fail_ci_if_error: false
