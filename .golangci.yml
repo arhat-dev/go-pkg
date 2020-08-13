@@ -65,3 +65,7 @@ issues:
     - maligned
     - lll
     - scopelint
+
+  - path: kubehelper
+    linters:
+    - lll
