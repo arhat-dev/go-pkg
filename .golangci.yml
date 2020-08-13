@@ -65,6 +65,7 @@ issues:
     - maligned
     - lll
     - scopelint
+    - goconst
 
   - path: kubehelper
     linters:

@@ -1,7 +1,7 @@
-GOTEST := go test -mod=readonly -v -race -failfast -covermode=atomic
+GOTEST := GOOS=$(shell go env GOHOSTOS) GOARCH=$(shell go env GOHOSTARCH) CGO_ENABLED=1 go test -mod=readonly -v -race -failfast -covermode=atomic
 
 test.unit:
-	go test -mod=readonly -v -race -failfast -covermode=atomic -coverprofile=coverage.txt -coverpkg=./... -run '!(TestJQCompability)' ./...
+	${GOTEST} -coverprofile=coverage.txt -coverpkg=./... -run '!(TestJQCompability)' ./...
 
 view.coverage:
 	go tool cover -html=coverage.txt

@@ -105,16 +105,10 @@ func CreateCSIDriverClient(apiResources []*metav1.APIResourceList, kubeClient ku
 	client := &CSIDriverClient{}
 
 	discovery.FilteredBy(discovery.ResourcePredicateFunc(func(groupVersion string, r *metav1.APIResource) bool {
-		gvk := metav1.GroupVersionKind{
-			Group:   r.Group,
-			Version: r.Version,
-			Kind:    r.Kind,
-		}
-
-		switch gvk.String() {
-		case storagev1.SchemeGroupVersion.WithKind("CSIDriver").String():
+		switch groupVersion + r.Kind {
+		case storagev1.SchemeGroupVersion.String() + "CSIDriver":
 			client.V1Client = kubeClient.StorageV1().CSIDrivers()
-		case storagev1b1.SchemeGroupVersion.WithKind("CSIDriver").String():
+		case storagev1b1.SchemeGroupVersion.String() + "CSIDriver":
 			client.V1b1Client = kubeClient.StorageV1beta1().CSIDrivers()
 		}
 

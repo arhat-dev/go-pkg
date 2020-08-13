@@ -23,16 +23,10 @@ func CreateLeaseClient(apiResources []*metav1.APIResourceList, kubeClient kubern
 	client := &LeaseClient{}
 
 	discovery.FilteredBy(discovery.ResourcePredicateFunc(func(groupVersion string, r *metav1.APIResource) bool {
-		gvk := metav1.GroupVersionKind{
-			Group:   r.Group,
-			Version: r.Version,
-			Kind:    r.Kind,
-		}
-
-		switch gvk.String() {
-		case codv1.SchemeGroupVersion.WithKind("Lease").String():
+		switch groupVersion + r.Kind {
+		case codv1.SchemeGroupVersion.String() + "Lease":
 			client.V1Client = kubeClient.CoordinationV1().Leases(namespace)
-		case codv1b1.SchemeGroupVersion.WithKind("Lease").String():
+		case codv1b1.SchemeGroupVersion.String() + "Lease":
 			client.V1b1Client = kubeClient.CoordinationV1beta1().Leases(namespace)
 		}
 

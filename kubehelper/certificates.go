@@ -26,17 +26,11 @@ func CreateCertificateSigningRequestClient(apiResources []*metav1.APIResourceLis
 	client := &CertificateSigningRequestClient{}
 
 	discovery.FilteredBy(discovery.ResourcePredicateFunc(func(groupVersion string, r *metav1.APIResource) bool {
-		gvk := metav1.GroupVersionKind{
-			Group:   r.Group,
-			Version: r.Version,
-			Kind:    r.Kind,
-		}
-
 		// nolint:gocritic
-		switch gvk.String() {
-		//case certv1.SchemeGroupVersion.WithKind("CertificateSigningRequest").String():
+		switch groupVersion + r.Kind {
+		//case certv1.SchemeGroupVersion.String() + "CertificateSigningRequest":
 		//	client.V1Client = kubeClient.CertificatesV1().CertificateSigningRequests()
-		case certv1b1.SchemeGroupVersion.WithKind("CertificateSigningRequest").String():
+		case certv1b1.SchemeGroupVersion.String() + "CertificateSigningRequest":
 			client.V1b1Client = kubeClient.CertificatesV1beta1().CertificateSigningRequests()
 		}
 
