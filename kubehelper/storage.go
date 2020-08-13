@@ -6,18 +6,100 @@ import (
 
 	storageapiv1 "k8s.io/api/storage/v1"
 	storageapiv1b1 "k8s.io/api/storage/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	"k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/apis/storage"
 	storagev1 "k8s.io/kubernetes/pkg/apis/storage/v1"
 	storagev1b1 "k8s.io/kubernetes/pkg/apis/storage/v1beta1"
 )
+
+func CreateCSIDriverLister(indexer cache.Indexer) *CSIDriverLister {
+	return &CSIDriverLister{indexer: indexer}
+}
+
+type CSIDriverLister struct {
+	indexer cache.Indexer
+}
+
+// List lists all CSIDrivers in the indexer.
+func (l *CSIDriverLister) List(selector labels.Selector) ([]*storage.CSIDriver, error) {
+	var (
+		err   error
+		errIn error
+		ret   []*storage.CSIDriver
+	)
+
+	err = cache.ListAll(l.indexer, selector, func(m interface{}) {
+		if errIn != nil {
+			return
+		}
+
+		out := new(storage.CSIDriver)
+
+		switch t := m.(type) {
+		case *storageapiv1.CSIDriver:
+			errIn = storagev1.Convert_v1_CSIDriver_To_storage_CSIDriver(t, out, conversion.Scope(nil))
+		case *storageapiv1b1.CSIDriver:
+			errIn = storagev1b1.Convert_v1beta1_CSIDriver_To_storage_CSIDriver(t, out, conversion.Scope(nil))
+		}
+
+		if errIn != nil {
+			return
+		}
+
+		ret = append(ret, out)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// Get retrieves the CSIDriver from the index for a given name.
+func (l *CSIDriverLister) Get(name string) (*storage.CSIDriver, error) {
+	obj, exists, err := l.indexer.GetByKey(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		list := l.indexer.List()
+		if len(list) == 0 {
+			return nil, errors.NewNotFound(storageapiv1.Resource("csidriver"), name)
+		}
+
+		switch list[0].(type) {
+		case *storageapiv1.CSIDriver:
+			return nil, errors.NewNotFound(storageapiv1.Resource("csidriver"), name)
+		case *storageapiv1b1.CSIDriver:
+			return nil, errors.NewNotFound(storageapiv1b1.Resource("csidriver"), name)
+		}
+	}
+
+	out := new(storage.CSIDriver)
+	switch t := obj.(type) {
+	case *storageapiv1.CSIDriver:
+		err = storagev1.Convert_v1_CSIDriver_To_storage_CSIDriver(t, out, conversion.Scope(nil))
+	case *storageapiv1b1.CSIDriver:
+		err = storagev1b1.Convert_v1beta1_CSIDriver_To_storage_CSIDriver(t, out, conversion.Scope(nil))
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
 
 func CreateCSIDriverClient(apiResources []*metav1.APIResourceList, kubeClient kubernetes.Interface) *CSIDriverClient {
 	client := &CSIDriverClient{}
