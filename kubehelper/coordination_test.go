@@ -30,10 +30,10 @@ func TestCreateLeaseClient(t *testing.T) {
 			resource: &metav1.APIResourceList{
 				GroupVersion: "coordination.k8s.io/v1beta1",
 				APIResources: []metav1.APIResource{{
-					Name:         "csidrivers",
+					Name:         "leases",
 					SingularName: "",
-					Namespaced:   false,
-					Kind:         "CSIDriver",
+					Namespaced:   true,
+					Kind:         "Lease",
 				}},
 			},
 		},
