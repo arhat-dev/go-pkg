@@ -271,3 +271,95 @@ func (c *CertificateSigningRequestClient) Patch(ctx context.Context, name string
 
 	return result, nil
 }
+
+func (c *CertificateSigningRequestClient) UpdateStatus(ctx context.Context, csr *certificates.CertificateSigningRequest, opts metav1.UpdateOptions) (*certificates.CertificateSigningRequest, error) {
+	var (
+		err    error
+		result = new(certificates.CertificateSigningRequest)
+	)
+
+	switch {
+	//case c.V1Client != nil:
+	//	out := new(certapiv1.CertificateSigningRequest)
+	//	// scope is not used
+	//	err = certv1.Convert_certificates_CertificateSigningRequest_To_v1_CertificateSigningRequest(csr, out, conversion.Scope(nil))
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	out, err = c.V1Client.Update(ctx, out, opts)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	err = certv1.Convert_v1_CertificateSigningRequest_To_certificates_CertificateSigningRequest(out, result, conversion.Scope(nil))
+	case c.V1b1Client != nil:
+		out := new(certapiv1b1.CertificateSigningRequest)
+		// scope is not used
+		err = certv1b1.Convert_certificates_CertificateSigningRequest_To_v1beta1_CertificateSigningRequest(csr, out, conversion.Scope(nil))
+		if err != nil {
+			return nil, err
+		}
+
+		out, err = c.V1b1Client.UpdateStatus(ctx, out, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		err = certv1b1.Convert_v1beta1_CertificateSigningRequest_To_certificates_CertificateSigningRequest(out, result, conversion.Scope(nil))
+	default:
+		return nil, fmt.Errorf("unsupported CertificateSigningRequest api version")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (c *CertificateSigningRequestClient) UpdateApproval(ctx context.Context, csr *certificates.CertificateSigningRequest, opts metav1.UpdateOptions) (*certificates.CertificateSigningRequest, error) {
+	var (
+		err    error
+		result = new(certificates.CertificateSigningRequest)
+	)
+
+	switch {
+	//case c.V1Client != nil:
+	//	out := new(certapiv1.CertificateSigningRequest)
+	//	// scope is not used
+	//	err = certv1.Convert_certificates_CertificateSigningRequest_To_v1_CertificateSigningRequest(csr, out, conversion.Scope(nil))
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	out, err = c.V1Client.Update(ctx, out, opts)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	err = certv1.Convert_v1_CertificateSigningRequest_To_certificates_CertificateSigningRequest(out, result, conversion.Scope(nil))
+	case c.V1b1Client != nil:
+		out := new(certapiv1b1.CertificateSigningRequest)
+		// scope is not used
+		err = certv1b1.Convert_certificates_CertificateSigningRequest_To_v1beta1_CertificateSigningRequest(csr, out, conversion.Scope(nil))
+		if err != nil {
+			return nil, err
+		}
+
+		out, err = c.V1b1Client.UpdateApproval(ctx, out, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		err = certv1b1.Convert_v1beta1_CertificateSigningRequest_To_certificates_CertificateSigningRequest(out, result, conversion.Scope(nil))
+	default:
+		return nil, fmt.Errorf("unsupported CertificateSigningRequest api version")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
