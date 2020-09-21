@@ -70,3 +70,7 @@ issues:
   - path: kubehelper
     linters:
     - lll
+
+  - text: "commentFormatting: put a space between `//` and comment text"
+    linters:
+    - gocritic

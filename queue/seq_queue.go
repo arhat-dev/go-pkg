@@ -50,11 +50,11 @@ func (q *SeqQueue) Offer(seq uint64, data interface{}) (out []interface{}, compl
 	defer q.mu.Unlock()
 
 	switch {
-	case q.next >= q.max:
+	case q.next > q.max:
 		// complete, discard
 		return nil, true
-	case seq >= q.max, seq < q.next:
-		// discard
+	case seq > q.max, seq < q.next:
+		// exceeded or duplicated, discard
 		return nil, false
 	case seq == q.next:
 		// is expected next chunk, pop it and its following chunks
@@ -69,7 +69,7 @@ func (q *SeqQueue) Offer(seq uint64, data interface{}) (out []interface{}, compl
 		}
 		q.data = q.data[len(out)-1:]
 
-		return out, q.next >= q.max
+		return out, q.next > q.max
 	}
 
 	insertAt := 0
@@ -92,12 +92,13 @@ func (q *SeqQueue) Offer(seq uint64, data interface{}) (out []interface{}, compl
 	return nil, false
 }
 
-// SetMaxSeq defines when should this queue stop adding data
+// SetMaxSeq sets when should this queue stop adding data
 func (q *SeqQueue) SetMaxSeq(maxSeq uint64) (completed bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if q.next >= maxSeq {
+	if q.next > maxSeq {
+		// existing seq data already exceeds maxSeq
 		q.max = q.next
 		return true
 	}
@@ -106,7 +107,7 @@ func (q *SeqQueue) SetMaxSeq(maxSeq uint64) (completed bool) {
 	return false
 }
 
-// Reset to make this queue empty again
+// Reset the SeqQueue for new sequential data
 func (q *SeqQueue) Reset() {
 	q.mu.Lock()
 	defer q.mu.Unlock()

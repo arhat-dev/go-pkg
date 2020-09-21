@@ -22,88 +22,107 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSeqQueue(t *testing.T) {
-	const N = 100
-
+func BenchmarkSeqQueue_BestCase(b *testing.B) {
+	n := uint64(b.N)
 	q := NewSeqQueue()
-	for i := 0; i < N; i++ {
-		data, completed := q.Offer(uint64(i), i)
-		assert.Equal(t, 1, len(data))
-		assert.Equal(t, i, data[0].(int))
-		assert.False(t, completed)
+	q.SetMaxSeq(n)
+
+	b.ResetTimer()
+	for i := uint64(0); i <= n; i++ {
+		q.Offer(i, 0)
+	}
+}
+
+func BenchmarkSeqQueue_WorstCase(b *testing.B) {
+	n := uint64(b.N)
+	q := NewSeqQueue()
+	q.SetMaxSeq(n)
+	q.Offer(0, 0)
+
+	b.ResetTimer()
+	for i := n; i > 0; i-- {
+		q.Offer(i, 0)
+	}
+}
+
+func TestSeqQueue(t *testing.T) {
+	const MaxSeq = 100
+
+	var (
+		sequentialSerial []uint64
+		reversedSerial   []uint64
+	)
+	for i := 0; i <= MaxSeq; i++ {
+		sequentialSerial = append(sequentialSerial, uint64(i))
+	}
+	for i := MaxSeq; i >= 0; i-- {
+		reversedSerial = append(reversedSerial, uint64(i))
 	}
 
-	q.Reset()
-	for i := N - 1; i > 0; i-- {
-		data, completed := q.Offer(uint64(i), i)
-		assert.Nil(t, data)
-		assert.False(t, completed)
-	}
+	t.Run("Sequential One Out Per Offer", func(t *testing.T) {
+		q := NewSeqQueue()
+		q.SetMaxSeq(MaxSeq)
 
-	{
-		data, completed := q.Offer(uint64(0), 0)
-		assert.NotNil(t, data)
-		assert.Equal(t, N, len(data))
-		assert.False(t, completed)
-		for i, d := range data {
-			assert.Equal(t, i, d.(int))
+		for idx, i := range sequentialSerial {
+			data, complete := q.Offer(i, i)
+
+			assert.Len(t, data, 1)
+			assert.Equal(t, i, data[0].(uint64))
+
+			if idx == len(sequentialSerial)-1 {
+				assert.True(t, complete)
+			} else {
+				assert.False(t, complete)
+			}
 		}
-	}
+	})
 
-	q.Reset()
-	for i := 0; i < N; i++ {
-		data, completed := q.Offer(uint64(i), i)
-		assert.Equal(t, 1, len(data))
-		assert.Equal(t, i, data[0].(int))
-		assert.False(t, completed)
-	}
-	for i := 0; i < N; i++ {
-		data, completed := q.Offer(0, 0)
-		assert.Nil(t, data)
-		assert.False(t, completed)
-	}
+	t.Run("Reversed No Data Until Last", func(t *testing.T) {
+		q := NewSeqQueue()
+		q.SetMaxSeq(MaxSeq)
 
-	q.Reset()
-	for i := 1; i < N/2; i += 2 {
-		data, completed := q.Offer(uint64(i), i)
-		assert.Equal(t, 0, len(data))
-		assert.False(t, completed)
-	}
+		for idx, i := range reversedSerial {
+			data, complete := q.Offer(i, i)
 
-	completed := q.SetMaxSeq(1)
-	assert.False(t, completed)
-
-	completed = q.SetMaxSeq(N)
-	assert.False(t, completed)
-
-	completed = q.SetMaxSeq(N / 2)
-	assert.False(t, completed)
-
-	for i := 0; i < N/2; i += 2 {
-		var data []interface{}
-		data, completed = q.Offer(uint64(i), i)
-		assert.Equal(t, 2, len(data))
-		assert.Equal(t, i, data[0].(int))
-		assert.Equal(t, i+1, data[1].(int))
-		if i == N/2-2 {
-			assert.True(t, completed)
-		} else {
-			assert.False(t, completed)
+			if idx == len(reversedSerial)-1 {
+				assert.Len(t, data, MaxSeq+1)
+				assert.True(t, complete)
+			} else {
+				assert.Len(t, data, 0)
+				assert.False(t, complete)
+			}
 		}
-	}
+	})
 
-	completed = q.SetMaxSeq(1)
-	assert.True(t, completed)
+	t.Run("Only One Seq Data", func(t *testing.T) {
+		q := NewSeqQueue()
 
-	completed = q.SetMaxSeq(N)
-	assert.False(t, completed)
+		_, complete := q.Offer(0, 0)
+		assert.False(t, complete)
+		assert.True(t, q.SetMaxSeq(0))
 
-	completed = q.SetMaxSeq(N / 2)
-	assert.True(t, completed)
+		q = NewSeqQueue()
+		assert.False(t, q.SetMaxSeq(0))
+		_, complete = q.Offer(0, 0)
+		assert.True(t, complete)
+	})
 
-	for i := N / 2; i < N; i++ {
-		data, completed := q.Offer(uint64(i), i)
-		assert.Equal(t, 0, len(data))
-		assert.True(t, completed)
-	}
+	t.Run("Duplicated Data", func(t *testing.T) {
+		q := NewSeqQueue()
+		for i := 0; i < MaxSeq; i++ {
+			data, complete := q.Offer(uint64(i), i)
+			assert.Equal(t, 1, len(data))
+			assert.Equal(t, i, data[0].(int))
+			assert.False(t, complete)
+		}
+
+		for i := 0; i < MaxSeq; i++ {
+			data, complete := q.Offer(0, 0)
+			assert.Len(t, data, 0)
+			assert.False(t, complete)
+		}
+
+		assert.False(t, q.SetMaxSeq(MaxSeq))
+		assert.True(t, q.SetMaxSeq(MaxSeq-1))
+	})
 }
