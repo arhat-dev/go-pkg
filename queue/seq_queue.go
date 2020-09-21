@@ -51,18 +51,17 @@ func (q *SeqQueue) Offer(seq uint64, data interface{}) (out []interface{}, compl
 
 	switch {
 	case q.next >= q.max:
+		// complete, discard
 		return nil, true
-	case seq >= q.max:
-		// discard
-		return nil, false
-	case seq < q.next:
+	case seq >= q.max, seq < q.next:
 		// discard
 		return nil, false
 	case seq == q.next:
+		// is expected next chunk, pop it and its following chunks
 		q.next++
 		out = []interface{}{data}
 		for _, d := range q.data {
-			if d.seq != q.next {
+			if d.seq != q.next || d.seq > q.max {
 				break
 			}
 			out = append(out, d.data)
@@ -70,7 +69,7 @@ func (q *SeqQueue) Offer(seq uint64, data interface{}) (out []interface{}, compl
 		}
 		q.data = q.data[len(out)-1:]
 
-		return out, q.next == q.max
+		return out, q.next >= q.max
 	}
 
 	insertAt := 0
