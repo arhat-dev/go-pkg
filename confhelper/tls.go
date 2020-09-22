@@ -202,12 +202,18 @@ func (c TLSConfig) GetTLSConfig() (_ *tls.Config, err error) {
 	var certBytes, keyBytes []byte
 	if c.Cert != "" {
 		certBytes, err = ioutil.ReadFile(c.Cert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load cert: %w", err)
+		}
 	} else if c.CertData != "" {
 		certBytes = []byte(c.CertData)
 	}
 
 	if c.Key != "" {
 		keyBytes, err = ioutil.ReadFile(c.Key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load key: %w", err)
+		}
 	} else {
 		keyBytes = []byte(c.KeyData)
 	}
