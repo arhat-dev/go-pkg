@@ -8,11 +8,12 @@ require (
 	github.com/prometheus/client_golang v1.5.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
-	go.opentelemetry.io/otel v0.6.0
+	go.opentelemetry.io/otel v0.13.0
 	go.opentelemetry.io/otel/exporters/metric/prometheus v0.6.0
 	go.opentelemetry.io/otel/exporters/otlp v0.6.0
 	go.opentelemetry.io/otel/exporters/trace/jaeger v0.6.0
 	go.opentelemetry.io/otel/exporters/trace/zipkin v0.6.0
+	go.opentelemetry.io/otel/sdk v0.13.0
 	go.uber.org/multierr v1.5.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
