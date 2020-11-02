@@ -12,9 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: tidy
-tidy:
-	GOPROXY=direct GOSUMDB=off go mod tidy
+RUN_LINTER := docker run -t --rm -v "$(shell pwd):$(shell pwd)" -w "$(shell pwd)"
 
-include scripts/test.mk
-include scripts/lint.mk
+lint.file:
+	${RUN_LINTER} mstruebing/editorconfig-checker:2.1.0 ec -config .ecrc
+
+lint.shell:
+	${RUN_LINTER} koalaman/shellcheck-alpine:stable \
+		sh -c "find . | grep -E -e '.sh\$$' | grep -v build | xargs -I'{}' shellcheck -S warning -e SC1090 -e SC1091 {} ;"
+
+lint.go:
+	${RUN_LINTER} golangci/golangci-lint:v1.30.0 golangci-lint run --fix
+
+lint.yaml:
+	${RUN_LINTER} arhatdev/yamllint:latest yamllint -c .yaml-lint.yml .
+
+lint.all: \
+	lint.file \
+	lint.shell \
+	lint.go \
+	lint.yaml

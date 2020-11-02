@@ -1,4 +1,9 @@
-exclude: vendor
+# exclude: |
+#   (?x)^(
+#     file-regex-pattern-1|
+#     file-regex-pattern-2
+#   )$
+
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v2.5.0
@@ -6,9 +11,3 @@ repos:
   - id: trailing-whitespace
   - id: end-of-file-fixer
   - id: check-yaml
-
-- repo: https://github.com/dnephin/pre-commit-golang
-  rev: master
-  hooks:
-  - id: golangci-lint
-    args: [--fix]
