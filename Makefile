@@ -20,3 +20,6 @@ test.unit.confhelper:
 
 view.coverage.confhelper:
 	go tool cover -html=coverage.confhelper.txt
+
+tidy:
+	GOPROXY=direct GOSUMDB=off go mod tidy

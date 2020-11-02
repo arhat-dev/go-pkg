@@ -19,6 +19,7 @@ import (
 	otexporterotlp "go.opentelemetry.io/otel/exporters/otlp"
 	otsdkmetricspull "go.opentelemetry.io/otel/sdk/metric/controller/pull"
 	"go.opentelemetry.io/otel/sdk/metric/controller/push"
+	"go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
 	"google.golang.org/grpc/credentials"
 
@@ -62,7 +63,7 @@ func (c *MetricsConfig) RegisterIfEnabled(ctx context.Context, logger log.Interf
 	}
 
 	var (
-		metricsProvider otapimetric.Provider
+		metricsProvider otapimetric.MeterProvider
 	)
 
 	tlsConfig, err := c.TLS.GetTLSConfig(true)
@@ -89,14 +90,13 @@ func (c *MetricsConfig) RegisterIfEnabled(ctx context.Context, logger log.Interf
 		}
 
 		pusher := push.New(
-			simple.NewWithExactDistribution(),
+			basic.New(simple.NewWithExactDistribution(), exporter),
 			exporter,
-			push.WithStateful(true),
 			push.WithPeriod(5*time.Second),
 		)
 		pusher.Start()
 
-		metricsProvider = pusher.Provider()
+		metricsProvider = pusher.MeterProvider()
 	case "prometheus":
 		var metricsListener net.Listener
 		metricsListener, err = net.Listen("tcp", c.Endpoint)
@@ -114,11 +114,7 @@ func (c *MetricsConfig) RegisterIfEnabled(ctx context.Context, logger log.Interf
 
 		var exporter *otprom.Exporter
 		exporter, err = otprom.NewExportPipeline(promCfg,
-			otsdkmetricspull.WithStateful(true),
 			otsdkmetricspull.WithCachePeriod(5*time.Second),
-			otsdkmetricspull.WithErrorHandler(func(err error) {
-				logger.V("prom push controller error", log.Error(err))
-			}),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to install global metrics collector")
