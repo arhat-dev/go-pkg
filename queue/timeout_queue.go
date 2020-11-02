@@ -286,6 +286,8 @@ func (q *TimeoutQueue) Clear() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
+	q.blackList = make(map[interface{}]struct{})
+	q.index = make(map[interface{}]int)
 	q.data = make([]*TimeoutData, 0, 16)
 }
 
