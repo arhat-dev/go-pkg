@@ -17,6 +17,7 @@ limitations under the License.
 package pipenet
 
 import (
+	"io"
 	"net"
 	"os"
 	"time"
@@ -48,6 +49,10 @@ type PipeConn struct {
 }
 
 func (c *PipeConn) Read(b []byte) (n int, err error) {
+	if c.r.Fd() == 0 {
+		return 0, io.EOF
+	}
+
 	return c.r.Read(b)
 }
 
