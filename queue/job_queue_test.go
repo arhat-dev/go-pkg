@@ -150,7 +150,8 @@ func TestWorkQueueAction(t *testing.T) {
 			}
 
 			time.Sleep(WaitTime)
-			_ = q.Offer(Job{ActionAdd, strconv.Itoa(i)})
+
+			_ = q.Offer(Job{TargetAction, strconv.Itoa(i)})
 		}
 	}()
 
@@ -170,12 +171,8 @@ func TestWorkQueueAction(t *testing.T) {
 		}
 	}
 
-	if time.Since(startTime) < WorkCount*WaitTime {
-		t.Error("work time less than expected")
-	}
-	if invalidCount == 0 {
-		t.Error("invalid count should not be zero")
-	}
+	assert.GreaterOrEqual(t, int64(time.Since(startTime)), int64(WorkCount*WaitTime), "work time less than expected")
 
+	assert.NotEqual(t, 0, invalidCount, "invalid count should not be zero")
 	assert.Equal(t, WorkCount, validCount)
 }
