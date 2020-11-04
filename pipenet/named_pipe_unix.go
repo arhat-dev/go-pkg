@@ -33,9 +33,63 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/multierr"
+
 	"arhat.dev/pkg/hashhelper"
 	"arhat.dev/pkg/iohelper"
 )
+
+var _ net.Conn = (*pipeConn)(nil)
+
+type pipeConn struct {
+	r *os.File
+	w *os.File
+
+	hold *os.File
+}
+
+func (c *pipeConn) Read(b []byte) (n int, err error) {
+	if c.r.Fd() == 0 {
+		return 0, io.EOF
+	}
+
+	return c.r.Read(b)
+}
+
+func (c *pipeConn) Write(b []byte) (n int, err error) {
+	return c.w.Write(b)
+}
+
+func (c *pipeConn) Close() error {
+	_ = syscall.SetNonblock(int(c.r.Fd()), true)
+	_ = c.SetDeadline(time.Now().Add(time.Second))
+
+	err := multierr.Combine(c.r.Close(), c.w.Close(), c.hold.Close())
+	_ = os.Remove(c.w.Name())
+	_ = os.Remove(c.r.Name())
+	_ = os.Remove(c.hold.Name())
+	return err
+}
+
+func (c *pipeConn) LocalAddr() net.Addr {
+	return &PipeAddr{Path: c.w.Name()}
+}
+
+func (c *pipeConn) RemoteAddr() net.Addr {
+	return &PipeAddr{Path: c.r.Name()}
+}
+
+func (c *pipeConn) SetDeadline(t time.Time) error {
+	return multierr.Append(c.r.SetDeadline(t), c.w.SetDeadline(t))
+}
+
+func (c *pipeConn) SetReadDeadline(t time.Time) error {
+	return c.r.SetReadDeadline(t)
+}
+
+func (c *pipeConn) SetWriteDeadline(t time.Time) error {
+	return c.w.SetWriteDeadline(t)
+}
 
 var _ net.Listener = (*PipeListener)(nil)
 
@@ -46,7 +100,7 @@ type PipeListener struct {
 	r      *bufio.Reader
 
 	localR *os.File
-	pcs    map[string]*PipeConn
+	pcs    map[string]*pipeConn
 	mu     *sync.RWMutex
 	closed bool
 }
@@ -81,7 +135,7 @@ accept:
 		goto accept
 	}
 
-	conn, err := func() (*PipeConn, error) {
+	conn, err := func() (*pipeConn, error) {
 		defer func() {
 			if err != nil {
 				_, _ = serverW.WriteString(fmt.Sprintf("error:%v\n", err))
@@ -117,7 +171,7 @@ accept:
 			return nil, err
 		}
 
-		conn := &PipeConn{
+		conn := &pipeConn{
 			r: serverR,
 			w: serverW,
 
@@ -209,7 +263,7 @@ func ListenPipe(path, connDir string, perm os.FileMode) (net.Listener, error) {
 		r:      bufio.NewReaderSize(localR, 4096),
 		localW: localW,
 		localR: localR,
-		pcs:    make(map[string]*PipeConn),
+		pcs:    make(map[string]*pipeConn),
 		mu:     new(sync.RWMutex),
 	}, nil
 }
@@ -222,11 +276,11 @@ func DialContext(ctx context.Context, path string) (net.Conn, error) {
 	return DialPipeContext(ctx, nil, &PipeAddr{Path: path})
 }
 
-func DialPipe(laddr *PipeAddr, raddr *PipeAddr) (*PipeConn, error) {
+func DialPipe(laddr *PipeAddr, raddr *PipeAddr) (net.Conn, error) {
 	return DialPipeContext(context.TODO(), laddr, raddr)
 }
 
-func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ *PipeConn, err error) {
+func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ net.Conn, err error) {
 	if raddr == nil {
 		return nil, &net.AddrError{Err: "no remote address provided"}
 	}
@@ -332,7 +386,7 @@ func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ *
 		return nil, err
 	}
 
-	return &PipeConn{
+	return &pipeConn{
 		w: clientW,
 		r: clientR,
 
