@@ -18,8 +18,11 @@ package pipenet
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"net"
+	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -58,14 +61,27 @@ func TestPipeNet(t *testing.T) {
 				panic(err)
 			}
 
-			l1, err := ListenPipe("", t.TempDir(), 0600)
-			if !assert.NoError(t, err, "failed to listen random pipe addr") {
-				return
-			}
+			var l1, l2 net.Listener
+			if runtime.GOOS == "windows" {
+				l1, err = ListenPipe(`\\.\pipe\test-1`, t.TempDir(), 0600)
+				if !assert.NoError(t, err, "failed to listen pipe 1") {
+					return
+				}
 
-			l2, err := ListenPipe(listenPipePath, "", 0600)
-			if !assert.NoError(t, err, "failed to listen pipe addr %q", listenPipePath) {
-				return
+				l2, err = ListenPipe(`\\.\pipe\test-2`, "", 0600)
+				if !assert.NoError(t, err, "failed to listen pipe 2") {
+					return
+				}
+			} else {
+				l1, err = ListenPipe("", t.TempDir(), 0600)
+				if !assert.NoError(t, err, "failed to listen random pipe addr") {
+					return
+				}
+
+				l2, err = ListenPipe(listenPipePath, "", 0600)
+				if !assert.NoError(t, err, "failed to listen pipe addr %q", listenPipePath) {
+					return
+				}
 			}
 
 			serverRead := make(chan struct{})
@@ -145,8 +161,63 @@ func TestPipeNet(t *testing.T) {
 }
 
 func BenchmarkPipeNet(b *testing.B) {
-	ListenPipe("", b.TempDir(), 0600)
-	for i := 0; i < b.N; i++ {
+	for _, chunkSize := range []int{64, 512, 1024, 2048, 4096, 32768, 65536} {
+		b.Run(fmt.Sprintf("pipenet-%d", chunkSize), func(b *testing.B) {
+			listenPath := os.TempDir()
+			if runtime.GOOS == "windows" {
+				listenPath = `\\.\pipe\benchmark-'` + b.Name()
+			}
 
+			l, err := ListenPipe(listenPath, os.TempDir(), 0600)
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			finished := make(chan struct{})
+			defer func() {
+				close(finished)
+				_ = l.Close()
+			}()
+
+			buf := make([]byte, chunkSize)
+			go func() {
+				conn, err2 := l.Accept()
+				if err2 != nil {
+					select {
+					case <-finished:
+					default:
+						b.Error(err2)
+					}
+					return
+				}
+
+				for {
+					_, err2 = conn.Read(buf)
+					if err2 != nil {
+						select {
+						case <-finished:
+						default:
+							b.Error(err2)
+						}
+						return
+					}
+				}
+			}()
+
+			conn, err := Dial(l.Addr().String())
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			data := make([]byte, chunkSize)
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_, err = conn.Write(data)
+				if err != nil {
+					b.Error(err)
+					return
+				}
+			}
+		})
 	}
 }

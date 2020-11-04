@@ -25,6 +25,7 @@ import (
 )
 
 func ListenPipe(path, connDir string, perm os.FileMode) (net.Listener, error) {
+	_, _ = perm, connDir
 	return winio.ListenPipe(path, &winio.PipeConfig{
 		SecurityDescriptor: "",
 		MessageMode:        false,
