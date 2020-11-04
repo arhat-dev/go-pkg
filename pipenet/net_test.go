@@ -162,10 +162,13 @@ func TestPipeNet(t *testing.T) {
 
 func BenchmarkPipeNet(b *testing.B) {
 	for _, chunkSize := range []int{64, 512, 1024, 2048, 4096, 32768, 65536} {
+
+		seq := 1
 		b.Run(fmt.Sprintf("pipenet-%d", chunkSize), func(b *testing.B) {
+			seq++
 			listenPath := os.TempDir()
 			if runtime.GOOS == "windows" {
-				listenPath = `\\.\pipe\benchmark-` + fmt.Sprintf("%d", chunkSize)
+				listenPath = `\\.\pipe\benchmark-` + fmt.Sprintf("%d-%d", seq, chunkSize)
 			}
 
 			l, err := ListenPipe(listenPath, os.TempDir(), 0600)
