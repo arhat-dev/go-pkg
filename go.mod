@@ -3,6 +3,7 @@ module arhat.dev/pkg
 go 1.15
 
 require (
+	github.com/Microsoft/go-winio v0.4.15
 	github.com/creack/pty v1.1.11
 	github.com/itchyny/gojq v0.11.2
 	github.com/prometheus/client_golang v1.8.0
