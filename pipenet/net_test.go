@@ -19,6 +19,7 @@ package pipenet
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"os"
@@ -145,11 +146,10 @@ func TestPipeNet(t *testing.T) {
 					}
 
 					buf := make([]byte, len(testData))
-					n, err := conn.Read(buf)
-					_ = n
+					_, err = io.ReadFull(conn, buf)
 					assert.NoError(t, err)
 
-					assert.EqualValues(t, testData, buf[:n])
+					assert.EqualValues(t, testData, buf)
 
 					_ = conn.Close()
 
@@ -195,7 +195,7 @@ func BenchmarkPipeNet(b *testing.B) {
 				}
 
 				for {
-					_, err2 = conn.Read(buf)
+					_, err2 = io.ReadFull(conn, buf)
 					if err2 != nil {
 						select {
 						case <-finished:
