@@ -33,17 +33,17 @@ func BenchmarkSeqQueue_BestCase(b *testing.B) {
 	}
 }
 
-func BenchmarkSeqQueue_WorstCase(b *testing.B) {
-	n := uint64(b.N)
-	q := NewSeqQueue()
-	q.SetMaxSeq(n)
-	q.Offer(0, 0)
+// func BenchmarkSeqQueue_WorstCase(b *testing.B) {
+// 	n := uint64(b.N)
+// 	q := NewSeqQueue()
+// 	q.SetMaxSeq(n)
+// 	q.Offer(0, 0)
 
-	b.ResetTimer()
-	for i := n; i > 0; i-- {
-		q.Offer(i, 0)
-	}
-}
+// 	b.ResetTimer()
+// 	for i := n; i > 0; i-- {
+// 		q.Offer(i, 0)
+// 	}
+// }
 
 func TestSeqQueue(t *testing.T) {
 	const MaxSeq = 100
