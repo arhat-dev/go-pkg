@@ -61,6 +61,8 @@ func (c *PipeConn) Write(b []byte) (n int, err error) {
 }
 
 func (c *PipeConn) Close() error {
+	_ = c.SetDeadline(time.Now().Add(time.Second))
+
 	err := multierr.Combine(c.r.Close(), c.w.Close(), c.hold.Close())
 	_ = os.Remove(c.w.Name())
 	_ = os.Remove(c.r.Name())
