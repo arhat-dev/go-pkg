@@ -14,26 +14,103 @@
 
 GOTEST := GOOS=$(shell go env GOHOSTOS) GOARCH=$(shell go env GOHOSTARCH) CGO_ENABLED=1 go test -mod=readonly -v -race -failfast -covermode=atomic
 
-test.unit:
-	${GOTEST} -coverprofile=coverage.txt -coverpkg=./... -run '!(TestJQCompability)' ./...
-
-view.coverage:
-	go tool cover -html=coverage.txt
-
-test.unit.backoff:
-	${GOTEST} -coverprofile=coverage.backoff.txt -coverpkg=./backoff ./backoff
-
-view.coverage.backoff:
-	go tool cover -html=coverage.backoff.txt
-
 test.unit.confhelper:
 	go run ./test/kube_incluster_env.go \
 		-ca-data-from ./test/testdata/ca.crt \
 		-token-data-from ./test/testdata/token \
 		-- ${GOTEST} -coverprofile=coverage.confhelper.txt -coverpkg=./confhelper ./confhelper
 
-view.coverage.confhelper:
-	go tool cover -html=coverage.confhelper.txt
+test.unit.queue:
+	sh scripts/test.sh $@
+
+test.unit.textquery:
+	sh scripts/test.sh $@
+
+test.unit.backoff:
+	sh scripts/test.sh $@
+
+test.unit.pipenet:
+	sh scripts/test.sh $@
+
+test.unit.log:
+	sh scripts/test.sh $@
+
+test.unit.iohelper:
+	sh scripts/test.sh $@
+
+test.unit.kubehelper:
+	sh scripts/test.sh $@
+
+test.unit.envhelper:
+	sh scripts/test.sh $@
+
+test.unit: \
+	test.unit.pipenet \
+	test.unit.backoff \
+	test.unit.textquery \
+	test.unit.queue \
+	test.unit.log \
+	test.unit.iohelper \
+	test.unit.kubehelper \
+	test.unit.envhelper
+
+test.benchmark.queue:
+	sh scripts/test.sh $@
+
+test.benchmark.textquery:
+	sh scripts/test.sh $@
+
+test.benchmark.backoff:
+	sh scripts/test.sh $@
+
+test.benchmark.pipenet:
+	sh scripts/test.sh $@
+
+test.benchmark.log:
+	sh scripts/test.sh $@
+
+test.benchmark.iohelper:
+	sh scripts/test.sh $@
+
+test.benchmark.kubehelper:
+	sh scripts/test.sh $@
+
+test.benchmark.envhelper:
+	sh scripts/test.sh $@
+
+test.benchmark: \
+	test.benchmark.pipenet \
+	test.benchmark.backoff \
+	test.benchmark.textquery \
+	test.benchmark.queue \
+	test.benchmark.log \
+	test.benchmark.iohelper \
+	test.benchmark.kubehelper \
+	test.benchmark.envhelper
+
+view.coverage.queue:
+	sh scripts/test.sh $@
+
+view.coverage.textquery:
+	sh scripts/test.sh $@
+
+view.coverage.backoff:
+	sh scripts/test.sh $@
+
+view.coverage.pipenet:
+	sh scripts/test.sh $@
+
+view.coverage.log:
+	sh scripts/test.sh $@
+
+view.coverage.iohelper:
+	sh scripts/test.sh $@
+
+view.coverage.kubehelper:
+	sh scripts/test.sh $@
+
+view.coverage.envhelper:
+	sh scripts/test.sh $@
 
 install.fuzz:
 	sh scripts/fuzz.sh install
