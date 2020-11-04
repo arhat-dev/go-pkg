@@ -49,10 +49,6 @@ type pipeConn struct {
 }
 
 func (c *pipeConn) Read(b []byte) (n int, err error) {
-	if c.r.Fd() == 0 {
-		return 0, io.EOF
-	}
-
 	return c.r.Read(b)
 }
 
@@ -61,9 +57,6 @@ func (c *pipeConn) Write(b []byte) (n int, err error) {
 }
 
 func (c *pipeConn) Close() error {
-	_ = syscall.SetNonblock(int(c.r.Fd()), true)
-	_ = c.SetDeadline(time.Now().Add(time.Second))
-
 	err := multierr.Combine(c.r.Close(), c.w.Close(), c.hold.Close())
 	_ = os.Remove(c.w.Name())
 	_ = os.Remove(c.r.Name())
@@ -433,7 +426,7 @@ func createPipe(path string, perm uint32) (r, w *os.File, err error) {
 		errCh <- err2
 	}()
 
-	r, err = os.OpenFile(path, os.O_RDONLY, os.ModeNamedPipe)
+	r, err = os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
 	if err != nil {
 		return
 	}
