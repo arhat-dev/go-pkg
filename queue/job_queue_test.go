@@ -67,7 +67,7 @@ func TestWorkQueueLogic(t *testing.T) {
 		foo = "foo"
 	)
 	q := NewJobQueue()
-	assert.True(t, q.isClosed())
+	assert.True(t, q.isPaused())
 	for i := 0; i < 10000; i++ {
 		// work should be invalid since work queue has been closed
 		work, more := q.Acquire()
@@ -76,7 +76,7 @@ func TestWorkQueueLogic(t *testing.T) {
 	}
 
 	q.Resume()
-	assert.False(t, q.isClosed())
+	assert.False(t, q.isPaused())
 
 	assert.NoError(t, q.Offer(Job{ActionUpdate, foo}))
 	assert.Equal(t, ErrJobDuplicated, q.Offer(Job{ActionUpdate, foo}))
@@ -134,9 +134,15 @@ func TestWorkQueueAction(t *testing.T) {
 
 	startTime := time.Now()
 	go func() {
-		defer close(sigCh)
+		defer func() {
+			time.Sleep(time.Second)
+			q.Pause()
+
+			close(sigCh)
+		}()
 
 		for i := 0; i < WorkCount; i++ {
+			// some random pause and resume
 			if i == WorkCount/4 {
 				q.Resume()
 			}
@@ -159,8 +165,7 @@ func TestWorkQueueAction(t *testing.T) {
 	validCount := 0
 	for !finished() {
 		work, more := q.Acquire()
-
-		if q.isClosed() {
+		if !more {
 			invalidCount++
 			assert.False(t, more)
 			assert.Equal(t, ActionInvalid, work.Action)
@@ -174,5 +179,5 @@ func TestWorkQueueAction(t *testing.T) {
 	assert.GreaterOrEqual(t, int64(time.Since(startTime)), int64(WorkCount*WaitTime), "work time less than expected")
 
 	assert.NotEqual(t, 0, invalidCount, "invalid count should not be zero")
-	assert.Equal(t, WorkCount, validCount)
+	assert.InDelta(t, WorkCount, validCount, 1.5)
 }
