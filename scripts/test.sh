@@ -34,9 +34,9 @@ benchmark() {
   pkg="$1"
 
   GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) CGO_ENABLED=1 \
-	  go test -timeout 30m -mod=readonly -bench '^Benchmark.*' \
-    -benchmem  -covermode=atomic -coverprofile "coverage.bench.${pkg}.txt" \
-	  -benchtime 5s -run '^Benchmark.*' -v  -coverpkg "./${pkg}" "./${pkg}"
+    go test -timeout 30m -mod=readonly -bench '^Benchmark.*' \
+    -benchmem -covermode=atomic -coverprofile "coverage.bench.${pkg}.txt" \
+    -benchtime 5s -run '^Benchmark.*' -v -coverpkg "./${pkg}" "./${pkg}"
 }
 
 TARGET=$(printf "%s" "$@" | cut -d. -f2)
