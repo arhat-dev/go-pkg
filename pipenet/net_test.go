@@ -44,7 +44,7 @@ func TestPipeNet(t *testing.T) {
 		},
 		{
 			name:      "Local path dir",
-			localPath: t.TempDir(),
+			localPath: os.TempDir(),
 		},
 		{
 			name:          "Local path file",
@@ -56,14 +56,14 @@ func TestPipeNet(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			listenPipePath, err := iohelper.TempFilename(t.TempDir(), "*")
+			listenPipePath, err := iohelper.TempFilename(os.TempDir(), "*")
 			if !assert.NoError(t, err, "failed to create temp file") {
 				panic(err)
 			}
 
 			var l1, l2 net.Listener
 			if runtime.GOOS == "windows" {
-				l1, err = ListenPipe(`\\.\pipe\test-1`, t.TempDir(), 0600)
+				l1, err = ListenPipe(`\\.\pipe\test-1`, os.TempDir(), 0600)
 				if !assert.NoError(t, err, "failed to listen pipe 1") {
 					return
 				}
@@ -73,7 +73,7 @@ func TestPipeNet(t *testing.T) {
 					return
 				}
 			} else {
-				l1, err = ListenPipe("", t.TempDir(), 0600)
+				l1, err = ListenPipe("", os.TempDir(), 0600)
 				if !assert.NoError(t, err, "failed to listen random pipe addr") {
 					return
 				}
@@ -121,7 +121,7 @@ func TestPipeNet(t *testing.T) {
 						localPath := test.localPath
 						if test.randLocalPath {
 							var err2 error
-							localPath, err2 = iohelper.TempFilename(t.TempDir(), "*")
+							localPath, err2 = iohelper.TempFilename(os.TempDir(), "*")
 							if !assert.NoError(t, err2, "failed to create temp file") {
 								panic(err2)
 							}
