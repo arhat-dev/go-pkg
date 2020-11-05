@@ -162,64 +162,92 @@ func TestPipeNet(t *testing.T) {
 
 func BenchmarkPipeNet(b *testing.B) {
 	for _, chunkSize := range []int{64, 512, 1024, 2048, 4096, 32768, 65536} {
-
 		seq := 1
-		b.Run(fmt.Sprintf("pipenet-%d", chunkSize), func(b *testing.B) {
+		b.Run(fmt.Sprintf("chunk-%d", chunkSize), func(b *testing.B) {
 			seq++
 			listenPath := os.TempDir()
 			if runtime.GOOS == "windows" {
 				listenPath = `\\.\pipe\benchmark-` + fmt.Sprintf("%d-%d", seq, chunkSize)
 			}
 
-			l, err := ListenPipe(listenPath, os.TempDir(), 0600)
+			pipeL, err := ListenPipe(listenPath, os.TempDir(), 0600)
 			if err != nil {
 				b.Error(err)
 				return
 			}
-			finished := make(chan struct{})
+
+			tcpL, err := net.Listen("tcp", "localhost:0")
+			if err != nil {
+				b.Error(err)
+				return
+			}
+
+			dialFunc := []func(string, string) (net.Conn, error){
+				// pipe
+				func(network, addr string) (net.Conn, error) {
+					return Dial(addr)
+				},
+				// tcp
+				func(network, addr string) (net.Conn, error) {
+					return net.Dial("tcp", addr)
+				},
+			}
+
 			defer func() {
-				close(finished)
-				_ = l.Close()
+				_ = pipeL.Close()
+				_ = tcpL.Close()
 			}()
 
-			buf := make([]byte, chunkSize)
-			go func() {
-				conn, err2 := l.Accept()
-				if err2 != nil {
-					select {
-					case <-finished:
-					default:
-						b.Error(err2)
-					}
-					return
-				}
+			for i, l := range []net.Listener{pipeL, tcpL} {
+				b.Run(l.Addr().Network(), func(b *testing.B) {
+					serverConnExited := make(chan struct{})
+					clientConnected := make(chan struct{})
+					go func() {
+						buf := make([]byte, chunkSize)
+						defer func() {
+							close(serverConnExited)
+						}()
 
-				for {
-					_, err2 = io.ReadFull(conn, buf)
-					if err2 != nil {
-						select {
-						case <-finished:
-						default:
+						conn, err2 := l.Accept()
+						close(clientConnected)
+						if err2 != nil {
 							b.Error(err2)
+							return
 						}
+
+						for j := 0; j < b.N; j++ {
+							_, err2 = io.ReadFull(conn, buf)
+							if err2 != nil {
+								b.Error(err2)
+								return
+							}
+						}
+
+						_, err2 = io.ReadFull(conn, buf)
+						if err2 == nil {
+							b.Errorf("expecting last read with error")
+						}
+					}()
+
+					conn, err := dialFunc[i](l.Addr().Network(), l.Addr().String())
+					if err != nil {
+						b.Error(err)
 						return
 					}
-				}
-			}()
+					data := make([]byte, chunkSize)
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						_, err = conn.Write(data)
+						if err != nil {
+							b.Error(err)
+							return
+						}
+					}
 
-			conn, err := Dial(l.Addr().String())
-			if err != nil {
-				b.Error(err)
-				return
-			}
-			data := make([]byte, chunkSize)
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_, err = conn.Write(data)
-				if err != nil {
-					b.Error(err)
-					return
-				}
+					<-clientConnected
+					_ = conn.Close()
+					<-serverConnExited
+				})
 			}
 		})
 	}

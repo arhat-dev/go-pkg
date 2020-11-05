@@ -20,6 +20,7 @@ package pipenet
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/md5"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,13 +49,13 @@ type pipeConn struct {
 	r *os.File
 	w *os.File
 
-	hold    *os.File
-	rawConn syscall.RawConn
+	remoteWrite *os.File
+	rawConn     syscall.RawConn
 
 	closed uint32
 }
 
-func (c *pipeConn) Read(b []byte) (n int, err error) {
+func (c *pipeConn) Read(b []byte) (int, error) {
 	if atomic.LoadUint32(&c.closed) == 1 {
 		return 0, os.ErrClosed
 	}
@@ -63,26 +65,60 @@ func (c *pipeConn) Read(b []byte) (n int, err error) {
 		ptr   = uintptr(0)
 		size  = uintptr(len(b))
 		count uintptr
+		err   error
+		eC    = uint8(0)
 	)
+
 	if size != 0 {
 		ptr = uintptr(unsafe.Pointer(&b[0]))
 	}
-	err = c.rawConn.Read(func(fd uintptr) (done bool) {
+
+rawRead:
+	_ = c.rawConn.Read(func(fd uintptr) bool {
 	read:
 		count, _, errno = syscall.Syscall(syscall.SYS_READ, fd, ptr, size)
-		if errno != syscall.EAGAIN {
-			n = int(count)
+		switch {
+		case errno == syscall.EAGAIN:
+			if eC == 255 {
+				eC = 0
+				count = 0
+				// too many EAGAIN, recall read to check fd
+				return true
+			}
+
+			eC++
+			// EAGAIN means resource not available, may need to wait for some time,
+			// yield cpu and retry
+			runtime.Gosched()
+
+			goto read
+		case errno != 0:
+			// error happened
+			err = errno
+			if count > size {
+				count = 0
+			}
+
+			return true
+		case atomic.LoadUint32(&c.closed) == 1:
+			// connection closed explicitly
+			err = os.ErrClosed
+			return true
+		case count == 0:
+			// no error happened and no data read, the file is closed
+			err = os.ErrClosed
+			return true
+		default:
+			err = nil
 			return true
 		}
-
-		if atomic.LoadUint32(&c.closed) == 1 {
-			return true
-		}
-
-		goto read
 	})
 
-	return
+	if count != 0 || err != nil {
+		return int(count), err
+	}
+
+	goto rawRead
 }
 
 func (c *pipeConn) Write(b []byte) (n int, err error) {
@@ -96,19 +132,24 @@ func (c *pipeConn) Close() error {
 		return nil
 	}
 
-	err := multierr.Combine(c.r.Close(), c.w.Close(), c.hold.Close())
-	_ = os.Remove(c.w.Name())
+	err := multierr.Combine(c.r.Close(), c.remoteWrite.Close())
 	_ = os.Remove(c.r.Name())
-	_ = os.Remove(c.hold.Name())
+	_ = os.Remove(c.remoteWrite.Name())
+
+	if c.w != nil {
+		_ = c.w.Close()
+		_ = os.Remove(c.w.Name())
+	}
+
 	return err
 }
 
 func (c *pipeConn) LocalAddr() net.Addr {
-	return &PipeAddr{Path: c.w.Name()}
+	return &PipeAddr{Path: c.r.Name()}
 }
 
 func (c *pipeConn) RemoteAddr() net.Addr {
-	return &PipeAddr{Path: c.r.Name()}
+	return &PipeAddr{Path: c.w.Name()}
 }
 
 func (c *pipeConn) SetDeadline(t time.Time) error {
@@ -128,10 +169,9 @@ var _ net.Listener = (*PipeListener)(nil)
 type PipeListener struct {
 	connDir string
 
-	localW *os.File
 	r      *bufio.Reader
+	listen *pipeConn
 
-	localR *os.File
 	pcs    map[string]*pipeConn
 	mu     *sync.RWMutex
 	closed bool
@@ -167,7 +207,7 @@ accept:
 		goto accept
 	}
 
-	conn, err := func() (*pipeConn, error) {
+	conn, err := func() (_ *pipeConn, err error) {
 		defer func() {
 			if err != nil {
 				_, _ = serverW.WriteString(fmt.Sprintf("error:%v\n", err))
@@ -197,6 +237,14 @@ accept:
 			return nil, err
 		}
 
+		defer func() {
+			// always close remote writer
+			_ = clientW.Close()
+			if err != nil {
+				_ = serverR.Close()
+			}
+		}()
+
 		// notify client new read pipe
 		_, err = serverW.Write(append([]byte(serverReadFile), '\n'))
 		if err != nil {
@@ -213,9 +261,28 @@ accept:
 			r: serverR,
 			w: serverW,
 
-			hold:    clientW,
-			rawConn: rawConn,
+			remoteWrite: clientW,
+			rawConn:     rawConn,
 		}
+
+		// wait for one byte acknowledge
+
+		expected := append([]byte(hashhelper.Sha512SumHex([]byte(serverReadFile))), '\n')
+		ack := make([]byte, len(expected))
+
+		// checksum read must be finished in a single read call
+		_, err = conn.Read(ack)
+		if err != nil {
+			return nil, err
+		}
+		if !bytes.Equal(expected, ack) {
+			return nil, fmt.Errorf("invalid pipe path checksum")
+		}
+
+		// once we received the acknowledge, the client is expected to have the writer pipe
+		// open, so we can close it and the close of the writer pipe on client side will
+		// cause reader pipe error
+
 		c.pcs[path] = conn
 		return conn, nil
 	}()
@@ -234,14 +301,11 @@ func (c *PipeListener) Close() error {
 		_ = conn.Close()
 	}
 
-	_ = c.localW.Close()
-	return c.localR.Close()
+	return c.listen.Close()
 }
 
 func (c *PipeListener) Addr() net.Addr {
-	return &PipeAddr{
-		Path: c.localR.Name(),
-	}
+	return c.listen.LocalAddr()
 }
 
 // ListenPipe will create a named pipe at path and listen incomming message
@@ -291,7 +355,7 @@ func ListenPipe(path, connDir string, perm os.FileMode) (net.Listener, error) {
 		return nil, fmt.Errorf("connDir is not a directory")
 	}
 
-	localR, localW, err := createPipe(path, uint32(perm))
+	localR, clientReq, err := createPipe(path, uint32(perm))
 	if err != nil {
 		return nil, err
 	}
@@ -301,12 +365,18 @@ func ListenPipe(path, connDir string, perm os.FileMode) (net.Listener, error) {
 		return nil, err
 	}
 
+	listen := &pipeConn{
+		r: localR,
+
+		remoteWrite: clientReq,
+		rawConn:     conn,
+	}
+
 	return &PipeListener{
 		connDir: connDir,
 		// linux path size limit is 4096
-		r:      bufio.NewReaderSize(&pipeConn{r: localR, rawConn: conn}, 4096),
-		localW: localW,
-		localR: localR,
+		r:      bufio.NewReaderSize(listen, 4096),
+		listen: listen,
 		pcs:    make(map[string]*pipeConn),
 		mu:     new(sync.RWMutex),
 	}, nil
@@ -362,6 +432,14 @@ func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ n
 		return nil, err
 	}
 
+	defer func() {
+		// always close serverW so we can be notified when server closed our writer
+		_ = serverW.Close()
+		if err != nil {
+			_ = clientR.Close()
+		}
+	}()
+
 	// request a new pipe from server
 	clientReq, err := os.OpenFile(raddr.Path, os.O_WRONLY, os.ModeNamedPipe)
 	if err != nil {
@@ -413,9 +491,9 @@ func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ n
 	}
 
 	conn := &pipeConn{
-		r:       clientR,
-		hold:    serverW,
-		rawConn: rawConn,
+		r:           clientR,
+		remoteWrite: serverW,
+		rawConn:     rawConn,
 	}
 
 	br := bufio.NewReaderSize(conn, 4096)
@@ -436,7 +514,14 @@ func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ n
 		return nil, &net.AddrError{Addr: serverReadFile, Err: "server did not provide absolute path pipe"}
 	}
 
+	// open server provided file as writer
 	conn.w, err = os.OpenFile(serverReadFile, os.O_WRONLY, os.ModeNamedPipe)
+	if err != nil {
+		return nil, err
+	}
+
+	// send filename checksum
+	_, err = conn.Write(append([]byte(hashhelper.Sha512SumHex([]byte(serverReadFile))), '\n'))
 	if err != nil {
 		return nil, err
 	}
