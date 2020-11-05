@@ -45,11 +45,23 @@ type pipeConn struct {
 	r *os.File
 	w *os.File
 
-	hold *os.File
+	hold    *os.File
+	rawConn syscall.RawConn
 }
 
 func (c *pipeConn) Read(b []byte) (n int, err error) {
-	return c.r.Read(b)
+	n, err = c.r.Read(b)
+	if err == nil {
+		return
+	}
+
+	if e, ok := err.(*os.PathError); ok {
+		if e.Err == syscall.EAGAIN {
+			return n, os.ErrClosed
+		}
+	}
+
+	return
 }
 
 func (c *pipeConn) Write(b []byte) (n int, err error) {
@@ -57,6 +69,9 @@ func (c *pipeConn) Write(b []byte) (n int, err error) {
 }
 
 func (c *pipeConn) Close() error {
+	_ = c.rawConn.Control(func(fd uintptr) {
+		_ = syscall.SetNonblock(int(fd), true)
+	})
 	err := multierr.Combine(c.r.Close(), c.w.Close(), c.hold.Close())
 	_ = os.Remove(c.w.Name())
 	_ = os.Remove(c.r.Name())
@@ -164,11 +179,18 @@ accept:
 			return nil, err
 		}
 
+		var rawConn syscall.RawConn
+		rawConn, err = serverR.SyscallConn()
+		if err != nil {
+			return nil, err
+		}
+
 		conn := &pipeConn{
 			r: serverR,
 			w: serverW,
 
-			hold: clientW,
+			hold:    clientW,
+			rawConn: rawConn,
 		}
 		c.pcs[path] = conn
 		return conn, nil
@@ -250,10 +272,15 @@ func ListenPipe(path, connDir string, perm os.FileMode) (net.Listener, error) {
 		return nil, err
 	}
 
+	conn, err := localR.SyscallConn()
+	if err != nil {
+		return nil, err
+	}
+
 	return &PipeListener{
 		connDir: connDir,
 		// linux path size limit is 4096
-		r:      bufio.NewReaderSize(localR, 4096),
+		r:      bufio.NewReaderSize(&pipeConn{r: localR, rawConn: conn}, 4096),
 		localW: localW,
 		localR: localR,
 		pcs:    make(map[string]*pipeConn),
@@ -356,7 +383,18 @@ func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ n
 		}()
 	}
 
-	br := bufio.NewReaderSize(clientR, 4096)
+	rawConn, err := clientR.SyscallConn()
+	if err != nil {
+		return
+	}
+
+	conn := &pipeConn{
+		r:       clientR,
+		hold:    serverW,
+		rawConn: rawConn,
+	}
+
+	br := bufio.NewReaderSize(conn, 4096)
 	serverReadFile, err := br.ReadString('\n')
 	close(connected)
 	if err != nil {
@@ -374,17 +412,12 @@ func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ n
 		return nil, &net.AddrError{Addr: serverReadFile, Err: "server did not provide absolute path pipe"}
 	}
 
-	clientW, err := os.OpenFile(serverReadFile, os.O_WRONLY, os.ModeNamedPipe)
+	conn.w, err = os.OpenFile(serverReadFile, os.O_WRONLY, os.ModeNamedPipe)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pipeConn{
-		w: clientW,
-		r: clientR,
-
-		hold: serverW,
-	}, nil
+	return conn, nil
 }
 
 func createPipe(path string, perm uint32) (r, w *os.File, err error) {
@@ -426,7 +459,7 @@ func createPipe(path string, perm uint32) (r, w *os.File, err error) {
 		errCh <- err2
 	}()
 
-	r, err = os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, os.ModeNamedPipe)
+	r, err = os.OpenFile(path, os.O_RDONLY, os.ModeNamedPipe)
 	if err != nil {
 		return
 	}
