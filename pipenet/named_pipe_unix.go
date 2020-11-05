@@ -30,8 +30,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"go.uber.org/multierr"
 
@@ -47,19 +49,38 @@ type pipeConn struct {
 
 	hold    *os.File
 	rawConn syscall.RawConn
+
+	closed uint32
 }
 
 func (c *pipeConn) Read(b []byte) (n int, err error) {
-	n, err = c.r.Read(b)
-	if err == nil {
-		return
+	if atomic.LoadUint32(&c.closed) == 1 {
+		return 0, os.ErrClosed
 	}
 
-	if e, ok := err.(*os.PathError); ok {
-		if e.Err == syscall.EAGAIN {
-			return n, os.ErrClosed
-		}
+	var (
+		errno syscall.Errno
+		ptr   = uintptr(0)
+		size  = uintptr(len(b))
+		count uintptr
+	)
+	if size != 0 {
+		ptr = uintptr(unsafe.Pointer(&b[0]))
 	}
+	err = c.rawConn.Read(func(fd uintptr) (done bool) {
+	read:
+		count, _, errno = syscall.Syscall(syscall.SYS_READ, fd, ptr, size)
+		if errno != syscall.EAGAIN {
+			n = int(count)
+			return true
+		}
+
+		if atomic.LoadUint32(&c.closed) == 1 {
+			return true
+		}
+
+		goto read
+	})
 
 	return
 }
@@ -68,10 +89,13 @@ func (c *pipeConn) Write(b []byte) (n int, err error) {
 	return c.w.Write(b)
 }
 
+// Close pipe connection
 func (c *pipeConn) Close() error {
-	_ = c.rawConn.Control(func(fd uintptr) {
-		_ = syscall.SetNonblock(int(fd), true)
-	})
+	// prevent reading from null fd, which will block indefinitely
+	if !atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
+		return nil
+	}
+
 	err := multierr.Combine(c.r.Close(), c.w.Close(), c.hold.Close())
 	_ = os.Remove(c.w.Name())
 	_ = os.Remove(c.r.Name())
@@ -459,7 +483,9 @@ func createPipe(path string, perm uint32) (r, w *os.File, err error) {
 		errCh <- err2
 	}()
 
-	r, err = os.OpenFile(path, os.O_RDONLY, os.ModeNamedPipe)
+	// open fifo file fd as non-blocking so we can cancel read operations when required
+	// see: https://github.com/golang/go/issues/20110#issuecomment-298124931
+	r, err = os.OpenFile(path, os.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NONBLOCK, os.ModeNamedPipe)
 	if err != nil {
 		return
 	}
