@@ -1,4 +1,4 @@
-// +build !windows
+// +build !windows,!plan9
 
 /*
 Copyright 2020 The arhat.dev Authors.
@@ -70,7 +70,7 @@ func (c *pipeConn) Read(b []byte) (int, error) {
 rawRead:
 	rawConnErr = c.rawConn.Read(func(fd uintptr) bool {
 		for eC = 0; eC < 1024; eC++ {
-			count, _, errno = syscall.Syscall(syscall.SYS_READ, fd, ptr, size)
+			count, _, errno = syscall.Syscall(syscallRead, fd, ptr, size)
 			switch {
 			case errno == syscall.EAGAIN:
 				// EAGAIN means resource not available, may need to wait for some time,
@@ -531,7 +531,7 @@ func createPipe(path string, perm uint32) (r, w *os.File, err error) {
 		_ = os.Remove(path)
 	}()
 
-	err = syscall.Mkfifo(path, perm)
+	err = mkfifo(path, perm)
 	if err != nil {
 		return
 	}
