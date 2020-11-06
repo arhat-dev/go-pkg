@@ -32,7 +32,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -51,15 +50,9 @@ type pipeConn struct {
 
 	remoteWrite *os.File
 	rawConn     syscall.RawConn
-
-	closed uint32
 }
 
 func (c *pipeConn) Read(b []byte) (int, error) {
-	if atomic.LoadUint32(&c.closed) == 1 {
-		return 0, os.ErrClosed
-	}
-
 	var (
 		errno      syscall.Errno
 		ptr        = uintptr(0)
@@ -90,10 +83,6 @@ rawRead:
 					count = 0
 				}
 
-				return true
-			case atomic.LoadUint32(&c.closed) == 1:
-				// connection closed explicitly
-				err = os.ErrClosed
 				return true
 			case count == 0:
 				// no error happened and no data read, the file is closed
@@ -128,11 +117,6 @@ func (c *pipeConn) Write(b []byte) (n int, err error) {
 
 // Close pipe connection
 func (c *pipeConn) Close() error {
-	// prevent reading from null fd, which will block indefinitely
-	if !atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
-		return nil
-	}
-
 	err := multierr.Combine(c.r.Close(), c.remoteWrite.Close())
 	_ = os.Remove(c.r.Name())
 	_ = os.Remove(c.remoteWrite.Name())
