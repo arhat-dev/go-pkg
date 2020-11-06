@@ -61,12 +61,13 @@ func (c *pipeConn) Read(b []byte) (int, error) {
 	}
 
 	var (
-		errno syscall.Errno
-		ptr   = uintptr(0)
-		size  = uintptr(len(b))
-		count uintptr
-		err   error
-		eC    = uint8(0)
+		errno      syscall.Errno
+		ptr        = uintptr(0)
+		size       = uintptr(len(b))
+		count      uintptr
+		err        error
+		rawConnErr error
+		eC         = int(0)
 	)
 
 	if size != 0 {
@@ -74,7 +75,7 @@ func (c *pipeConn) Read(b []byte) (int, error) {
 	}
 
 rawRead:
-	_ = c.rawConn.Read(func(fd uintptr) bool {
+	rawConnErr = c.rawConn.Read(func(fd uintptr) bool {
 	read:
 		count, _, errno = syscall.Syscall(syscall.SYS_READ, fd, ptr, size)
 		switch {
@@ -116,6 +117,12 @@ rawRead:
 
 	if count != 0 || err != nil {
 		return int(count), err
+	}
+
+	if rawConnErr != nil {
+		// this will happen when reading a closed file
+		// see https://github.com/golang/go/issues/29828
+		return int(count), rawConnErr
 	}
 
 	goto rawRead
