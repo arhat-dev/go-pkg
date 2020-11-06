@@ -76,43 +76,37 @@ func (c *pipeConn) Read(b []byte) (int, error) {
 
 rawRead:
 	rawConnErr = c.rawConn.Read(func(fd uintptr) bool {
-	read:
-		count, _, errno = syscall.Syscall(syscall.SYS_READ, fd, ptr, size)
-		switch {
-		case errno == syscall.EAGAIN:
-			if eC == 255 {
-				eC = 0
-				count = 0
-				// too many EAGAIN, recall read to check fd
+		for eC = 0; eC < 1024; eC++ {
+			count, _, errno = syscall.Syscall(syscall.SYS_READ, fd, ptr, size)
+			switch {
+			case errno == syscall.EAGAIN:
+				// EAGAIN means resource not available, may need to wait for some time,
+				// yield cpu and retry
+				runtime.Gosched()
+			case errno != 0:
+				// error happened
+				err = errno
+				if count > size {
+					count = 0
+				}
+
+				return true
+			case atomic.LoadUint32(&c.closed) == 1:
+				// connection closed explicitly
+				err = os.ErrClosed
+				return true
+			case count == 0:
+				// no error happened and no data read, the file is closed
+				err = os.ErrClosed
+				return true
+			default:
+				err = nil
 				return true
 			}
-
-			eC++
-			// EAGAIN means resource not available, may need to wait for some time,
-			// yield cpu and retry
-			runtime.Gosched()
-
-			goto read
-		case errno != 0:
-			// error happened
-			err = errno
-			if count > size {
-				count = 0
-			}
-
-			return true
-		case atomic.LoadUint32(&c.closed) == 1:
-			// connection closed explicitly
-			err = os.ErrClosed
-			return true
-		case count == 0:
-			// no error happened and no data read, the file is closed
-			err = os.ErrClosed
-			return true
-		default:
-			err = nil
-			return true
 		}
+
+		count = 0
+		return true
 	})
 
 	if count != 0 || err != nil {
