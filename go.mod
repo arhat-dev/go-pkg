@@ -12,8 +12,8 @@ require (
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
-	golang.org/x/sys v0.0.0-20201106081118-db71ae66460a
-	google.golang.org/grpc v1.33.1
+	golang.org/x/sys v0.0.0-20201107080550-4d91cf3a1aaf
+	google.golang.org/grpc v1.33.2
 	k8s.io/api v0.18.10
 	k8s.io/apimachinery v0.18.10
 	k8s.io/client-go v0.18.10

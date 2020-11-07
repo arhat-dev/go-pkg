@@ -10,6 +10,7 @@ on:
   push:
     branches:
     - master
+    - "!deps/**"
     tags:
     - v*
     paths-ignore:
@@ -25,6 +26,7 @@ defaults:
 
 jobs:
   unit-test:
+    if: contains(github.head_ref, 'deps/') == false
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
