@@ -1,5 +1,3 @@
-// +build !windows,!js,!plan9,!aix
-
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -19,42 +17,36 @@ limitations under the License.
 package exechelper
 
 import (
-	"io"
+	"os"
 	"os/exec"
-
-	"github.com/creack/pty"
+	"path/filepath"
+	"strings"
 )
 
-func startCmdWithTty(
-	cmd *exec.Cmd,
-	stdin io.Reader,
-	stdout io.Writer,
-	onCopyErr func(error),
-) (resizeFunc, func(), error) {
-	f, err := pty.Start(cmd)
-	if err != nil {
-		return nil, nil, err
+func Lookup(bin string, extraLookupPaths []string) (string, error) {
+	if strings.Contains(bin, "/") {
+		return exec.LookPath(bin)
 	}
 
-	if stdin != nil {
-		go func() {
-			_, err := io.Copy(f, stdin)
+	if filepath.Base(bin) == bin {
+		for _, lookupPath := range extraLookupPaths {
+			binPath := filepath.Join(lookupPath, bin)
+			info, err := os.Stat(binPath)
 			if err != nil {
-				onCopyErr(err)
+				// unable to check file status
+				continue
 			}
-		}()
+
+			// found file in this path, check if valid
+			m := info.Mode()
+			switch {
+			case m.IsDir():
+			case m.Perm()&0111 == 0:
+			default:
+				return binPath, nil
+			}
+		}
 	}
 
-	if stdout != nil {
-		go func() {
-			_, err := io.Copy(stdout, f)
-			if err != nil {
-				onCopyErr(err)
-			}
-		}()
-	}
-
-	return func(cols, rows int64) error {
-		return pty.Setsize(f, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
-	}, func() { _ = f.Close() }, nil
+	return exec.LookPath(bin)
 }
