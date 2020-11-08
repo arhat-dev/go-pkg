@@ -56,7 +56,6 @@ test.benchmark: \
 	test.benchmark.exechelper \
 	test.benchmark.hashhelper \
 	test.benchmark.iohelper \
-	test.benchmark.kubehelper \
 	test.benchmark.log \
 	test.benchmark.patchhelper \
 	test.benchmark.perfhelper \
