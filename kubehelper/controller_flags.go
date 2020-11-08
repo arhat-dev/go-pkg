@@ -1,4 +1,4 @@
-// +build !nocloud,!nokube
+// +build !noflaghelper
 
 /*
 Copyright 2020 The arhat.dev Authors.
@@ -16,12 +16,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package confhelper
+package kubehelper
 
 import (
 	"github.com/spf13/pflag"
 
 	"arhat.dev/pkg/log"
+	"arhat.dev/pkg/perfhelper"
 )
 
 func FlagsForControllerConfig(name, prefix string, l *log.Config, c *ControllerConfig) *pflag.FlagSet {
@@ -34,22 +35,13 @@ func FlagsForControllerConfig(name, prefix string, l *log.Config, c *ControllerC
 	fs.AddFlagSet(FlagsForKubeClient(prefix+"kubeClient", &c.KubeClient))
 
 	// metrics
-	fs.AddFlagSet(FlagsForMetrics(prefix+"metrics.", &c.Metrics))
+	fs.AddFlagSet(perfhelper.FlagsForMetrics(prefix+"metrics.", &c.Metrics))
 
 	// tracing
-	fs.AddFlagSet(FlagsForTracing(prefix+"tracing.", &c.Tracing))
+	fs.AddFlagSet(perfhelper.FlagsForTracing(prefix+"tracing.", &c.Tracing))
 
 	// leader-election
 	fs.AddFlagSet(FlagsForLeaderElection(name, prefix+"leaderElection.", &c.LeaderElection))
 
 	return fs
-}
-
-type ControllerConfig struct {
-	Log            log.ConfigSet        `json:"log" yaml:"log"`
-	KubeClient     KubeClientConfig     `json:"kubeClient" yaml:"kubeClient"`
-	Metrics        MetricsConfig        `json:"metrics" yaml:"metrics"`
-	Tracing        TracingConfig        `json:"tracing" yaml:"tracing"`
-	LeaderElection LeaderElectionConfig `json:"leaderElection" yaml:"leaderElection"`
-	PProf          PProfConfig          `json:"pprof" yaml:"pprof"`
 }

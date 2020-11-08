@@ -12,104 +12,61 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-GOTEST := GOOS=$(shell go env GOHOSTOS) GOARCH=$(shell go env GOHOSTARCH) CGO_ENABLED=1 go test -mod=readonly -v -race -failfast -covermode=atomic
+GOTEST := GOOS=$(shell go env GOHOSTOS) GOARCH=$(shell go env GOHOSTARCH) CGO_ENABLED=1 \
+	go test -mod=readonly -v -race -failfast -covermode=atomic
 
-test.unit.confhelper:
+test.unit.kubeclientconf:
 	go run ./test/kube_incluster_env.go \
 		-ca-data-from ./test/testdata/ca.crt \
 		-token-data-from ./test/testdata/token \
-		-- ${GOTEST} -coverprofile=coverage.confhelper.txt -coverpkg=./confhelper ./confhelper
+		-- ${GOTEST} -tags 'kubeclientconf' \
+			-coverprofile=coverage.confhelper.txt -coverpkg=./confhelper ./confhelper
 
-test.unit.queue:
+test.unit.%:
 	sh scripts/test.sh $@
 
-test.unit.textquery:
-	sh scripts/test.sh $@
-
-test.unit.backoff:
-	sh scripts/test.sh $@
-
-test.unit.pipenet:
-	sh scripts/test.sh $@
-
-test.unit.log:
-	sh scripts/test.sh $@
-
-test.unit.iohelper:
-	sh scripts/test.sh $@
-
-test.unit.kubehelper:
-	sh scripts/test.sh $@
-
-test.unit.envhelper:
-	sh scripts/test.sh $@
-
+.PHONY: test.unit
 test.unit: \
-	test.unit.pipenet \
 	test.unit.backoff \
-	test.unit.textquery \
-	test.unit.queue \
-	test.unit.log \
+	test.unit.decodehelper \
+	test.unit.encodehelper \
+	test.unit.envhelper \
+	test.unit.exechelper \
+	test.unit.hashhelper \
 	test.unit.iohelper \
 	test.unit.kubehelper \
-	test.unit.envhelper
+	test.unit.log \
+	test.unit.patchhelper \
+	test.unit.perfhelper \
+	test.unit.pipenet \
+	test.unit.queue \
+	test.unit.reconcile \
+	test.unit.textquery \
+	test.unit.tlshelper
 
-test.benchmark.queue:
+test.benchmark.%:
 	sh scripts/test.sh $@
 
-test.benchmark.textquery:
-	sh scripts/test.sh $@
-
-test.benchmark.backoff:
-	sh scripts/test.sh $@
-
-test.benchmark.pipenet:
-	sh scripts/test.sh $@
-
-test.benchmark.log:
-	sh scripts/test.sh $@
-
-test.benchmark.iohelper:
-	sh scripts/test.sh $@
-
-test.benchmark.kubehelper:
-	sh scripts/test.sh $@
-
-test.benchmark.envhelper:
-	sh scripts/test.sh $@
-
+.PHONY: test.benchmark
 test.benchmark: \
-	test.benchmark.pipenet \
 	test.benchmark.backoff \
-	test.benchmark.textquery \
-	test.benchmark.queue \
-	test.benchmark.log \
+	test.benchmark.decodehelper \
+	test.benchmark.encodehelper \
+	test.benchmark.envhelper \
+	test.benchmark.exechelper \
+	test.benchmark.hashhelper \
 	test.benchmark.iohelper \
 	test.benchmark.kubehelper \
-	test.benchmark.envhelper
+	test.benchmark.log \
+	test.benchmark.patchhelper \
+	test.benchmark.perfhelper \
+	test.benchmark.pipenet \
+	test.benchmark.queue \
+	test.benchmark.reconcile \
+	test.benchmark.textquery \
+	test.benchmark.tlshelper
 
-view.coverage.queue:
-	sh scripts/test.sh $@
-
-view.coverage.textquery:
-	sh scripts/test.sh $@
-
-view.coverage.backoff:
-	sh scripts/test.sh $@
-
-view.coverage.pipenet:
-	sh scripts/test.sh $@
-
-view.coverage.log:
-	sh scripts/test.sh $@
-
-view.coverage.iohelper:
-	sh scripts/test.sh $@
-
-view.coverage.kubehelper:
-	sh scripts/test.sh $@
-
-view.coverage.envhelper:
+view.coverage.%:
 	sh scripts/test.sh $@
 
 install.fuzz:

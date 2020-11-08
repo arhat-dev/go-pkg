@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package confhelper
+package tlshelper
 
 import (
 	"crypto/tls"
@@ -26,32 +26,9 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-
-	"github.com/spf13/pflag"
 )
 
-func FlagsForTLSConfig(prefix string, config *TLSConfig) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("tlsConfig", pflag.ExitOnError)
-
-	fs.BoolVar(&config.Enabled, prefix+"enabled", false, "enable tls")
-	fs.BoolVar(&config.InsecureSkipVerify, prefix+"insecureSkipVerify", false, "allow insecure tls certs")
-	fs.StringVar(&config.CaCert, prefix+"caCert", "", "set path to ca cert")
-	fs.StringVar(&config.Cert, prefix+"cert", "", "set path to cert")
-	fs.StringVar(&config.Key, prefix+"key", "", "set path to private key file")
-	fs.StringVar(&config.ServerName, prefix+"serverName", "", "override server name")
-	fs.StringVar(&config.KeyLogFile, prefix+"keyLogFile", "", "set path to a file to write tls session key for debug")
-	fs.StringSliceVar(&config.CipherSuites, prefix+"cipherSuites", nil, "set acceptable cipher suites")
-
-	fs.BoolVar(&config.AllowInsecureHashes, prefix+"allowInsecureHashes", false, "allow insecure dtls hash functions")
-	fs.StringVar(&config.PreSharedKey.IdentityHint, prefix+"preSharedKey.identityHint", "",
-		"set identity hint for pre shared key")
-	fs.StringSliceVar(&config.PreSharedKey.ServerHintMapping, prefix+"preSharedKey.serverHintMapping", nil,
-		"set server hint to key mapping")
-
-	return fs
-}
-
-var cipherSuites = map[string]uint16{
+var CipherSuites = map[string]uint16{
 	"TLS_RSA_WITH_RC4_128_SHA":                tls.TLS_RSA_WITH_RC4_128_SHA,
 	"TLS_RSA_WITH_3DES_EDE_CBC_SHA":           tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
 	"TLS_RSA_WITH_AES_128_CBC_SHA":            tls.TLS_RSA_WITH_AES_128_CBC_SHA,
@@ -172,7 +149,7 @@ func (c TLSConfig) GetTLSConfig(server bool) (_ *tls.Config, err error) {
 	}
 
 	for _, c := range c.CipherSuites {
-		if code, ok := cipherSuites[strings.ToUpper(c)]; ok {
+		if code, ok := CipherSuites[strings.ToUpper(c)]; ok {
 			tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, code)
 		} else {
 			return nil, fmt.Errorf("unsupported cipher suite: %s", c)

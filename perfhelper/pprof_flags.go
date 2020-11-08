@@ -1,3 +1,5 @@
+// +build !noflaghelper
+
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -14,17 +16,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package confhelper
+package perfhelper
 
 import "github.com/spf13/pflag"
-
-type PProfConfig struct {
-	Enabled              bool   `json:"enabled" yaml:"enabled"`
-	Listen               string `json:"listen" yaml:"listen"`
-	HTTPPath             string `json:"httpPath" yaml:"httpPath"`
-	MutexProfileFraction int    `json:"mutexProfileFraction" yaml:"mutexProfileFraction"`
-	BlockProfileRate     int    `json:"blockProfileRate" yaml:"blockProfileRate"`
-}
 
 func FlagsForPProfConfig(prefix string, c *PProfConfig) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("pprof", pflag.ExitOnError)
@@ -36,12 +30,4 @@ func FlagsForPProfConfig(prefix string, c *PProfConfig) *pflag.FlagSet {
 	fs.IntVar(&c.BlockProfileRate, prefix+"blockProfileRate", 0, "set go/runtime block profile rate")
 
 	return fs
-}
-
-func (c *PProfConfig) RunIfEnabled() error {
-	if !c.Enabled {
-		return nil
-	}
-
-	return nil
 }

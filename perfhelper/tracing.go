@@ -1,5 +1,3 @@
-// +build !nocloud,!notelemetry
-
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -16,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package confhelper
+package perfhelper
 
 import (
 	"context"
@@ -27,7 +25,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/spf13/pflag"
 	otapiglobal "go.opentelemetry.io/otel/api/global"
 	otapitrace "go.opentelemetry.io/otel/api/trace"
 	otexporterotlp "go.opentelemetry.io/otel/exporters/otlp"
@@ -38,25 +35,9 @@ import (
 	otsemconv "go.opentelemetry.io/otel/semconv"
 	"google.golang.org/grpc/credentials"
 
-	"arhat.dev/pkg/envhelper"
 	"arhat.dev/pkg/log"
+	"arhat.dev/pkg/tlshelper"
 )
-
-func FlagsForTracing(prefix string, c *TracingConfig) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("tracing", pflag.ExitOnError)
-
-	fs.BoolVar(&c.Enabled, prefix+"enabled", false, "enable tracing")
-	fs.StringVar(&c.Format, prefix+"format", "jaeger", "set tracing stats format")
-	fs.StringVar(&c.EndpointType, prefix+"endpointType", "agent",
-		"set endpoint type of collector (only used for jaeger)")
-	fs.StringVar(&c.Endpoint, prefix+"endpoint", "", "set collector endpoint for tracing stats collection")
-	fs.Float64Var(&c.SampleRate, prefix+"sampleRate", 1.0, "set tracing sample rate")
-	fs.StringVar(&c.ReportedServiceName, prefix+"reportedServiceName",
-		fmt.Sprintf("%s.%s", envhelper.ThisPodName(), envhelper.ThisPodNS()), "set service name used for tracing stats")
-	fs.AddFlagSet(FlagsForTLSConfig(prefix+"tls", &c.TLS))
-
-	return fs
-}
 
 type TracingConfig struct {
 	// Enabled tracing stats
@@ -78,7 +59,7 @@ type TracingConfig struct {
 	ReportedServiceName string `json:"serviceName" yaml:"serviceName"`
 
 	// TLS config for client/server
-	TLS TLSConfig `json:"tls" yaml:"tls"`
+	TLS tlshelper.TLSConfig `json:"tls" yaml:"tls"`
 }
 
 func (c *TracingConfig) newHTTPClient(tlsConfig *tls.Config) *http.Client {

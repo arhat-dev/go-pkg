@@ -1,5 +1,3 @@
-// +build !nocloud,!notelemetry
-
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -16,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package confhelper
+package perfhelper
 
 import (
 	"context"
@@ -28,7 +26,6 @@ import (
 	"time"
 
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/spf13/pflag"
 	otapiglobal "go.opentelemetry.io/otel/api/global"
 	otapimetric "go.opentelemetry.io/otel/api/metric"
 	otprom "go.opentelemetry.io/otel/exporters/metric/prometheus"
@@ -40,19 +37,8 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"arhat.dev/pkg/log"
+	"arhat.dev/pkg/tlshelper"
 )
-
-func FlagsForMetrics(prefix string, c *MetricsConfig) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("metrics", pflag.ExitOnError)
-
-	fs.BoolVar(&c.Enabled, prefix+"enabled", true, "enable metrics collection")
-	fs.StringVar(&c.Endpoint, prefix+"listen", ":9876", "set address:port for telemetry endpoint")
-	fs.StringVar(&c.HTTPPath, prefix+"httpPath", "/metrics", "set http path for metrics collection")
-	fs.StringVar(&c.Format, prefix+"format", "prometheus", "set metrics format")
-	fs.AddFlagSet(FlagsForTLSConfig(prefix+"tls.", &c.TLS))
-
-	return fs
-}
 
 type MetricsConfig struct {
 	// Enabled metrics collection
@@ -70,7 +56,7 @@ type MetricsConfig struct {
 	HTTPPath string `json:"httpPath" yaml:"httpPath"`
 
 	// TLS config for client/server
-	TLS TLSConfig `json:"tls" yaml:"tls"`
+	TLS tlshelper.TLSConfig `json:"tls" yaml:"tls"`
 }
 
 func (c *MetricsConfig) RegisterIfEnabled(ctx context.Context, logger log.Interface) (err error) {

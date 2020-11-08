@@ -1,5 +1,3 @@
-// +build !nocloud,!nokube
-
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -16,30 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package confhelper
+package kubehelper
 
 import (
 	"fmt"
 
-	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/flowcontrol"
 )
-
-func FlagsForKubeClient(prefix string, c *KubeClientConfig) *pflag.FlagSet {
-	fs := pflag.NewFlagSet("kube.client", pflag.ExitOnError)
-
-	fs.StringVar(&c.KubeconfigPath, prefix+"kubeconfig", "", "set path to kubeconfig file")
-
-	fs.BoolVar(&c.RateLimit.Enabled, prefix+"rateLimit.enable", true, "enable rate limit for kubernetes api client")
-	fs.Float32Var(&c.RateLimit.QPS, prefix+"rateLimit.qps", 5, "set requests per second limit")
-	fs.IntVar(&c.RateLimit.Burst, prefix+"rateLimit.burst", 10, "set burst requests per second")
-
-	return fs
-}
 
 type KubeClientRateLimitConfig struct {
 	Enabled bool    `json:"enabled" yaml:"enabled"`

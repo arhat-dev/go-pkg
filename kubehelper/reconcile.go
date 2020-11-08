@@ -1,5 +1,3 @@
-// +build !nocloud,!nokube
-
 /*
 Copyright 2019 The arhat.dev Authors.
 
@@ -16,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reconcile
+package kubehelper
 
 import (
 	"context"
@@ -27,18 +25,19 @@ import (
 
 	"arhat.dev/pkg/log"
 	"arhat.dev/pkg/queue"
+	"arhat.dev/pkg/reconcile"
 )
 
 func NewKubeInformerReconciler(
 	ctx context.Context,
 	informer kubecache.SharedInformer,
-	options Options,
+	options reconcile.Options,
 ) *KubeInformerReconciler {
 	resolvedOpts := options.ResolveNil()
 
 	r := &KubeInformerReconciler{
 		log:  resolvedOpts.Logger,
-		Core: NewCore(ctx, resolvedOpts),
+		Core: reconcile.NewCore(ctx, resolvedOpts),
 	}
 
 	informer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
@@ -53,7 +52,7 @@ func NewKubeInformerReconciler(
 type KubeInformerReconciler struct {
 	log log.Interface
 
-	*Core
+	*reconcile.Core
 }
 
 func (r *KubeInformerReconciler) getInformerAddEventFunc() func(interface{}) {

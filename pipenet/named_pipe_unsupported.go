@@ -1,3 +1,5 @@
+// +build plan9 js
+
 /*
 Copyright 2020 The arhat.dev Authors.
 

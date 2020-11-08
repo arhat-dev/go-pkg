@@ -1,3 +1,5 @@
+// +build kubeclientconftest
+
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -14,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package confhelper
+package kubehelper
 
 import (
 	"os"
