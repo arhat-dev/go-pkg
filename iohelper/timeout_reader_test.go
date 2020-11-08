@@ -72,7 +72,7 @@ func TestReadWithTimeout(t *testing.T) {
 		assert.NotNil(t, data)
 		count++
 	}
-	assert.Equal(t, 10, count)
+	assert.GreaterOrEqual(t, count, 10)
 	assert.Equal(t, io.EOF, r.Error())
 
 	// if elp := time.Since(startTime); elp < time.Second {
