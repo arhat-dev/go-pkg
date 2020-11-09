@@ -26,10 +26,10 @@ import (
 )
 
 func startCmdWithTty(
-	cmd *exec.Cmd, 
-	stdin io.Reader, 
-	stdout io.Writer, 
-	func(error) {},
+	cmd *exec.Cmd,
+	stdin io.Reader,
+	stdout io.Writer,
+	onCopyErr func(error),
 ) (resizeFunc, func(), error) {
 	return nil, nil, wellknownerrors.ErrNotSupported
 }
