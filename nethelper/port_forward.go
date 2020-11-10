@@ -103,7 +103,6 @@ func PortForward(
 		errCh := make(chan error)
 		readErrCh = errCh
 		go handleCopyConn(ctx, conn, upstream, errCh, packetReadBuf)
-	case *net.UDPConn:
 	default:
 		// unknown connection, how could it succeeded?
 		if conn != nil {
