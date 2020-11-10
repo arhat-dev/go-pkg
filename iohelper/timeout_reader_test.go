@@ -17,7 +17,9 @@ limitations under the License.
 package iohelper_test
 
 import (
+	"context"
 	"io"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -27,16 +29,18 @@ import (
 	"arhat.dev/pkg/iohelper"
 )
 
-func TestReadWithTimeout(t *testing.T) {
+func TestTimeoutReader_Read(t *testing.T) {
 	const input = "test"
 
 	// startTime := time.Now()
 	r := iohelper.NewTimeoutReader(strings.NewReader(input), len(input)+1)
 	go r.StartBackgroundReading()
 
-	data, _ := r.ReadUntilTimeout(time.After(time.Second))
+	buf := make([]byte, len(input)+1)
+
+	n, _ := r.Read(time.Second, buf[0:])
 	assert.Equal(t, io.EOF, r.Error())
-	assert.Equal(t, input, string(data))
+	assert.Equal(t, input, string(buf[:n]))
 	// if elp := time.Since(startTime); elp < time.Second {
 	// 	assert.FailNow(t, "timout failed", "elp", elp)
 	// }
@@ -45,9 +49,9 @@ func TestReadWithTimeout(t *testing.T) {
 	go r.StartBackgroundReading()
 
 	// startTime = time.Now()
-	data, _ = r.ReadUntilTimeout(time.After(time.Second))
-	assert.Equal(t, io.EOF, r.Error())
-	assert.Equal(t, input[:len(input)-1], string(data))
+	n, _ = r.Read(time.Second, buf[0:len(input)-1])
+	// assert.Equal(t, io.EOF, r.Error())
+	assert.Equal(t, input[:len(input)-1], string(buf[:n]))
 	// if elp := time.Since(startTime); elp > time.Millisecond {
 	// 	assert.FailNow(t, "non-timout failed", "elp", elp)
 	// }
@@ -68,8 +72,8 @@ func TestReadWithTimeout(t *testing.T) {
 
 	var count int
 	for r.WaitUntilHasData(stopSig) {
-		data, _ := r.ReadUntilTimeout(time.After(time.Millisecond))
-		assert.NotNil(t, data)
+		n, _ := r.Read(time.Millisecond, buf[0:])
+		assert.Greater(t, n, 0)
 		count++
 	}
 	assert.GreaterOrEqual(t, count, 10)
@@ -78,4 +82,58 @@ func TestReadWithTimeout(t *testing.T) {
 	// if elp := time.Since(startTime); elp < time.Second {
 	// 	assert.FailNow(t, "close failed", "elp", elp)
 	// }
+}
+
+func TestTimeoutReader_ReadNet(t *testing.T) {
+	const testData = "test"
+
+	l, err := net.Listen("tcp", "localhost:0")
+	if !assert.NoError(t, err, "failed to listen tcp addr for test") {
+		return
+	}
+
+	srvClosed := make(chan struct{})
+	go func() {
+		srvConn, err2 := l.Accept()
+		if !assert.NoError(t, err2, "failed to accept conn") {
+			return
+		}
+		for i := 0; i < 5; i++ {
+			_, err2 = srvConn.Write([]byte(testData))
+			assert.NoError(t, err2, "failed to write test data")
+			time.Sleep(5 * time.Second)
+		}
+
+		_ = srvConn.Close()
+		close(srvClosed)
+	}()
+
+	clientConn, err := net.Dial("tcp", l.Addr().String())
+	if !assert.NoError(t, err, "failed to create test connection") {
+		return
+	}
+
+	go func() {
+		<-srvClosed
+		_ = clientConn.Close()
+	}()
+
+	tr := iohelper.NewTimeoutReader(clientConn, len(testData))
+	go tr.StartBackgroundReading()
+
+	buf := make([]byte, len(testData)+1)
+	count := 0
+	for tr.WaitUntilHasData(context.TODO().Done()) {
+		count++
+		n, err := tr.Read(time.Second, buf[0:])
+		if count == 6 {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err, "failed to read test data")
+			assert.EqualValues(t, testData, string(buf[:n]))
+			assert.Greater(t, n, 0)
+		}
+	}
+
+	assert.EqualValues(t, 6, count)
 }
