@@ -115,12 +115,10 @@ func NewTimeoutReader(r io.Reader) *TimeoutReader {
 		// support both set read deadline and syscall control
 		checkHasBufferedData = func() (hasData bool, err error) {
 			n := 0
-			errno := syscall.Errno(0)
 			err2 := control(func(fd uintptr) {
 				for i := 0; i < 1024; i++ {
-					n, errno = CheckBytesToRead(fd)
-					if errno != 0 {
-						err = errno
+					n, err = CheckBytesToRead(fd)
+					if err != nil {
 						return
 					}
 					if n != 0 {

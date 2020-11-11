@@ -1,3 +1,5 @@
+// +build windows plan9 solaris
+
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -20,6 +22,6 @@ import (
 	"syscall"
 )
 
-func CheckBytesToRead(fd uintptr) (int, syscall.Errno) {
+func CheckBytesToRead(fd uintptr) (int, error) {
 	return 0, syscall.EINVAL
 }
