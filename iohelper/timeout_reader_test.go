@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -119,6 +120,51 @@ func TestTimeoutReader_ReadNet(t *testing.T) {
 	}()
 
 	tr := iohelper.NewTimeoutReader(clientConn)
+	go tr.FallbackReading()
+
+	buf := make([]byte, len(testData)+1)
+	count := 0
+	for tr.WaitForData(context.TODO().Done()) {
+		n, err := tr.Read(time.Second, buf[0:])
+		if err == iohelper.ErrDeadlineExceeded && n == 0 {
+			continue
+		}
+
+		count++
+		if count == 6 {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err, "failed to read test data")
+			assert.EqualValues(t, testData, string(buf[:n]))
+			assert.Greater(t, n, 0)
+		}
+	}
+
+	assert.EqualValues(t, 6, count)
+}
+
+// Use os.Pipe to test reader has SetReadDeadline but actually do not support it
+func TestTimeoutReader_ReadPipe(t *testing.T) {
+	const testData = "test"
+
+	pr, pw, err := os.Pipe()
+	if !assert.NoError(t, err, "failed to create os pipe") {
+		return
+	}
+
+	go func() {
+		for i := 0; i < 5; i++ {
+			_, err2 := pw.Write([]byte(testData))
+			println("wrote")
+			assert.NoError(t, err2, "failed to write test data")
+			time.Sleep(5 * time.Second)
+		}
+
+		_ = pw.Close()
+		_ = pr.Close()
+	}()
+
+	tr := iohelper.NewTimeoutReader(pr)
 	go tr.FallbackReading()
 
 	buf := make([]byte, len(testData)+1)

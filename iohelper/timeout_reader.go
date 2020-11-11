@@ -72,15 +72,14 @@ func NewTimeoutReader(r io.Reader) *TimeoutReader {
 	)
 
 	// check if can set read deadline
-	switch t := r.(type) {
-	case interface {
+	rs, ok := r.(interface {
 		SetReadDeadline(t time.Time) error
-	}:
-		// clear read deadline in advance to check set deadline capability
-		if t.SetReadDeadline(time.Time{}) == nil {
-			setReadDeadline = t.SetReadDeadline
-		}
-	default:
+	})
+
+	// clear read deadline in advance to check set deadline capability
+	if ok && rs.SetReadDeadline(time.Time{}) == nil {
+		setReadDeadline = rs.SetReadDeadline
+	} else {
 		// mark set read deadline not working
 		close(cannotSetDeadline)
 		timer = time.NewTimer(0)
