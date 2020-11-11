@@ -17,7 +17,9 @@ limitations under the License.
 package iohelper
 
 import (
+	"errors"
 	"io"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -34,8 +36,7 @@ type TimeoutReader struct {
 
 	timer *time.Timer
 
-	rs readerWithDeadlineCaps
-
+	setReadDeadline      func(t time.Time) error
 	checkHasBufferedData func() (bool, error)
 	cannotSetDeadline    chan struct{}
 
@@ -49,33 +50,23 @@ type TimeoutReader struct {
 	mu      *sync.RWMutex
 }
 
-type readerWithDeadlineCaps interface {
-	SetReadDeadline(t time.Time) error
-}
-
-type readerWithSyscallConn interface {
-	SyscallConn() (syscall.RawConn, error)
-}
-
-type readerWithSyscallControl interface {
-	Control(f func(fd uintptr)) error
-}
-
 // NewTimeoutReader creates a new idle timeout reader
 func NewTimeoutReader(r io.Reader) *TimeoutReader {
 	var (
 		timer *time.Timer
-		rs    readerWithDeadlineCaps
 
+		setReadDeadline   func(t time.Time) error
 		cannotSetDeadline = make(chan struct{})
 	)
 
 	// check if can set read deadline
 	switch t := r.(type) {
-	case readerWithDeadlineCaps:
+	case interface {
+		SetReadDeadline(t time.Time) error
+	}:
 		// clear read deadline in advance to check set deadline capability
 		if t.SetReadDeadline(time.Time{}) == nil {
-			rs = t
+			setReadDeadline = t.SetReadDeadline
 		}
 	default:
 		// mark set read deadline not working
@@ -92,12 +83,16 @@ func NewTimeoutReader(r io.Reader) *TimeoutReader {
 
 	// check if can check buffered data
 	switch t := r.(type) {
-	case readerWithSyscallConn:
+	case interface {
+		SyscallConn() (syscall.RawConn, error)
+	}:
 		rawConn, err := t.SyscallConn()
 		if err == nil {
 			control = rawConn.Control
 		}
-	case readerWithSyscallControl:
+	case interface {
+		Control(f func(fd uintptr)) error
+	}:
 		control = t.Control
 	}
 
@@ -135,7 +130,7 @@ func NewTimeoutReader(r io.Reader) *TimeoutReader {
 	return &TimeoutReader{
 		timer: timer,
 
-		rs: rs,
+		setReadDeadline: setReadDeadline,
 
 		checkHasBufferedData: checkHasBufferedData,
 		cannotSetDeadline:    cannotSetDeadline,
@@ -298,6 +293,7 @@ func (t *TimeoutReader) WaitForData(stopSig <-chan struct{}) bool {
 
 // Read performs a read operation with timeout option, function will return when
 // maxWait exceeded or p is full
+// if the function returned because of timeout, the returned error is os.ErrDeadlineExceeded
 func (t *TimeoutReader) Read(maxWait time.Duration, p []byte) (n int, err error) {
 loop:
 	for {
@@ -307,12 +303,12 @@ loop:
 			break loop
 		default:
 			// try to set read deadline first
-			if t.rs.SetReadDeadline(time.Now().Add(maxWait)) != nil {
+			if t.setReadDeadline(time.Now().Add(maxWait)) != nil {
 				// signal not able to set read deadline
 				close(t.cannotSetDeadline)
 
 				// clear read deadline, best effort
-				_ = t.rs.SetReadDeadline(time.Time{})
+				_ = t.setReadDeadline(time.Time{})
 
 				// check if reader is alive
 				_, err = t.r.Read(make([]byte, 0))
@@ -331,16 +327,22 @@ loop:
 			}
 
 			n, err = t.r.Read(p)
-			if err != nil {
-				t.err.Store(err)
-
-				// read failed, signal not able to set read deadline
-				close(t.cannotSetDeadline)
-				return
-			}
 
 			// clear read deadline, best effort
-			_ = t.rs.SetReadDeadline(time.Time{})
+			_ = t.setReadDeadline(time.Time{})
+
+			if err != nil {
+				if !errors.Is(err, os.ErrDeadlineExceeded) {
+					// store unexpected error
+					t.err.Store(err)
+					// read failed, signal not able to set read deadline
+					close(t.cannotSetDeadline)
+
+					return n, err
+				}
+
+				return n, os.ErrDeadlineExceeded
+			}
 
 			return
 		}

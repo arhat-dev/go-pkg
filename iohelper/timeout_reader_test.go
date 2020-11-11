@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -124,8 +125,12 @@ func TestTimeoutReader_ReadNet(t *testing.T) {
 	buf := make([]byte, len(testData)+1)
 	count := 0
 	for tr.WaitForData(context.TODO().Done()) {
-		count++
 		n, err := tr.Read(time.Second, buf[0:])
+		if err == os.ErrDeadlineExceeded && n == 0 {
+			continue
+		}
+
+		count++
 		if count == 6 {
 			assert.Error(t, err)
 		} else {

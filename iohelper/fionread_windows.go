@@ -16,7 +16,9 @@ limitations under the License.
 
 package iohelper
 
-import "syscall"
+import (
+	"syscall"
+)
 
 func CheckBytesToRead(fd uintptr) (int, syscall.Errno) {
 	return 0, syscall.EINVAL
