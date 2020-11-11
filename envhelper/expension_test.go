@@ -69,6 +69,15 @@ func TestExpand(t *testing.T) {
 		{"$}", "$}"},
 		{"${", ""},  // invalid syntax; eat up the characters
 		{"${}", ""}, // invalid syntax; eat up the characters
+
+		{"$(FOO)$9$@", "$(FOO)$9$@"},
+		{"$(*)", "all the args"},
+		{"$(1)", "ARGUMENT1"},
+		{"$(HOME)", "/usr/gopher"},
+		{"$(H)OME", "(Value of H)OME"},
+		{"$)", "$)"},
+		{"$(", ""},  // invalid syntax; eat up the characters
+		{"$()", ""}, // invalid syntax; eat up the characters
 	}
 
 	for i, test := range tests {
