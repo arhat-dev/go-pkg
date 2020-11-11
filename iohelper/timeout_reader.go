@@ -17,9 +17,7 @@ limitations under the License.
 package iohelper
 
 import (
-	"errors"
 	"io"
-	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -30,7 +28,21 @@ import (
 // TimeoutReader is a reader with read timeout
 //
 // It is designed for those want to read some data from a stream, and the size
-// of the data is unknown, but still want to pipe data to some destination.
+// of the data is unknown, but still want to pipe data to some destination at
+// certain interval
+//
+// example use case: data streaming for shell interaction over MQTT
+//
+// 	when user input/output is slow, shall we send one character a time for real-time
+// 	interaction? what if the user executed `cat some-large-file`? what if user
+// 	was sending a large chunk of data over stdin?
+//
+// 	for raw tcp connection that's fine if you have configured tcp buffering correctly,
+// 	but for packet oriented connections (in this case MQTT), send one packet per byte
+// 	will signaficantly increase protocol overhead.
+//
+// 	with TimeoutReader we can read data generated in some interval (say 20ms), no
+//  real-time experience lost while still keep protocol overhead at a reasonable level
 type TimeoutReader struct {
 	buf []byte
 
@@ -175,7 +187,6 @@ func (t *TimeoutReader) FallbackReading() {
 	// not able to set read deadline any more
 	// case 1: SetReadDeadline not supported
 	// case 2: SetReadDeadline function call failed
-	// case 3: or no more data wanted
 
 	// check if reader is ok
 	_, err = t.r.Read(make([]byte, 0))
@@ -332,7 +343,7 @@ loop:
 			_ = t.setReadDeadline(time.Time{})
 
 			if err != nil {
-				if !errors.Is(err, os.ErrDeadlineExceeded) {
+				if !isDeadlineExceeded(err) {
 					// store unexpected error
 					t.err.Store(err)
 					// read failed, signal not able to set read deadline
@@ -341,10 +352,10 @@ loop:
 					return n, err
 				}
 
-				return n, os.ErrDeadlineExceeded
+				return n, ErrDeadlineExceeded
 			}
 
-			return
+			return n, nil
 		}
 	}
 
