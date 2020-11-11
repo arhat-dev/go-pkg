@@ -30,8 +30,7 @@ import (
 // It is designed for those want to read some data from a stream, and the size
 // of the data is unknown, but still want to pipe data to some destination.
 type TimeoutReader struct {
-	buf       []byte
-	chunkSize int
+	buf []byte
 
 	timer *time.Timer
 
@@ -63,7 +62,7 @@ type readerWithSyscallControl interface {
 }
 
 // NewTimeoutReader creates a new idle timeout reader
-func NewTimeoutReader(r io.Reader, minChunkSize int) *TimeoutReader {
+func NewTimeoutReader(r io.Reader) *TimeoutReader {
 	var (
 		timer *time.Timer
 		rs    readerWithDeadlineCaps
@@ -134,8 +133,6 @@ func NewTimeoutReader(r io.Reader, minChunkSize int) *TimeoutReader {
 	}
 
 	return &TimeoutReader{
-		chunkSize: minChunkSize,
-
 		timer: timer,
 
 		rs: rs,
@@ -162,9 +159,12 @@ func (t *TimeoutReader) Error() error {
 	return nil
 }
 
-// StartBackgroundReading until EOF or error returned, should be called in a goroutine
-// other than the one you are reading
-func (t *TimeoutReader) StartBackgroundReading() {
+// FallbackReading is a helper routine for data reading from readers has no SetReadDeadline
+// or SetReadDeadline failed when being called
+//
+// this function will block until EOF or error, so must be called in a goroutine other than
+// the one you are reading data
+func (t *TimeoutReader) FallbackReading() {
 	if !atomic.CompareAndSwapUint32(&t.started, 0, 1) {
 		// background reading already started
 		return
@@ -178,8 +178,9 @@ func (t *TimeoutReader) StartBackgroundReading() {
 	<-t.cannotSetDeadline
 
 	// not able to set read deadline any more
-	// this channel can be closed when SetReadDeadline errored
-	// and no more data wanted
+	// case 1: SetReadDeadline not supported
+	// case 2: SetReadDeadline function call failed
+	// case 3: or no more data wanted
 
 	// check if reader is ok
 	_, err = t.r.Read(make([]byte, 0))
@@ -238,19 +239,17 @@ func (t *TimeoutReader) hasDataInBuf() bool {
 	return len(t.buf) != 0
 }
 
-// WaitUntilHasData is a helper function used to check if there is data available,
-// to reduce actual call of Read when the timeout is a short duration
+// WaitForData is a helper function used to check if there is data available in reader
+// so we can reduce actual call of Read when the timeout is a short duration
 //
-// when return value is true, you can call Read directly to read data
-// otherwise, the stopSig has signaled, and we have no idea whether
-// you can read and get some data
-func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
+// when return value is true, you can call Read to read data, otherwise, false means
+// the stopSig has signaled, and we have no idea whether you should continue Read
+// from the reader
+func (t *TimeoutReader) WaitForData(stopSig <-chan struct{}) bool {
 	select {
 	case <-t.cannotSetDeadline:
 		// in one byte read mode
 	default:
-		// TODO: since we don't buffer data if reader supports SetReadDeadline
-		// 	     need to check if there is data to be read
 		hasData, err := t.checkHasBufferedData()
 		if err != nil {
 			return true
@@ -266,12 +265,15 @@ func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
 
 			hasData, err = t.checkHasBufferedData()
 			if err != nil {
+				// error happened when checking buffered data
 				return true
 			}
 		}
 
 		return hasData
 	}
+
+	// in one byte read mode
 
 	if t.Error() != nil {
 		// error happened, no more data will be read from background
@@ -294,13 +296,9 @@ func (t *TimeoutReader) WaitUntilHasData(stopSig <-chan struct{}) bool {
 	}
 }
 
-// Read perform a read operation with timeout option
-//
-// if the size of the buffered data has reached or maxed out the chunkSize,
-// then the size of returned data chunk will be chunkSize
-//
-// or reached max wait time, but buffer may not be fully filled, will return all buffered data
-func (t *TimeoutReader) Read(maxWait time.Duration, p []byte) (readN int, err error) {
+// Read performs a read operation with timeout option, function will return when
+// maxWait exceeded or p is full
+func (t *TimeoutReader) Read(maxWait time.Duration, p []byte) (n int, err error) {
 loop:
 	for {
 		select {
@@ -332,7 +330,7 @@ loop:
 				break
 			}
 
-			readN, err = t.r.Read(p)
+			n, err = t.r.Read(p)
 			if err != nil {
 				t.err.Store(err)
 
@@ -355,9 +353,9 @@ loop:
 	size := len(t.buf)
 	t.mu.RUnlock()
 
-	readN = size
-	if readN > maxReadSize {
-		readN = maxReadSize
+	n = size
+	if n > maxReadSize {
+		n = maxReadSize
 	}
 
 	if !t.timer.Reset(maxWait) {
@@ -396,18 +394,18 @@ loop:
 		return 0, t.Error()
 	}
 
-	readN = size
-	if readN > maxReadSize {
+	n = size
+	if n > maxReadSize {
 		// do not overflow
-		readN = maxReadSize
+		n = maxReadSize
 	}
 
 	// copy buffered data
 	t.mu.Lock()
 
 	err = t.Error()
-	readN = copy(p, t.buf[:readN])
-	t.buf = t.buf[readN:]
+	n = copy(p, t.buf[:n])
+	t.buf = t.buf[n:]
 
 	// handle has data check
 	size = len(t.buf)

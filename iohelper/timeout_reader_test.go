@@ -33,8 +33,8 @@ func TestTimeoutReader_Read(t *testing.T) {
 	const input = "test"
 
 	// startTime := time.Now()
-	r := iohelper.NewTimeoutReader(strings.NewReader(input), len(input)+1)
-	go r.StartBackgroundReading()
+	r := iohelper.NewTimeoutReader(strings.NewReader(input))
+	go r.FallbackReading()
 
 	buf := make([]byte, len(input)+1)
 
@@ -45,8 +45,8 @@ func TestTimeoutReader_Read(t *testing.T) {
 	// 	assert.FailNow(t, "timout failed", "elp", elp)
 	// }
 
-	r = iohelper.NewTimeoutReader(strings.NewReader(input), len(input)-1)
-	go r.StartBackgroundReading()
+	r = iohelper.NewTimeoutReader(strings.NewReader(input))
+	go r.FallbackReading()
 
 	// startTime = time.Now()
 	n, _ = r.Read(time.Second, buf[0:len(input)-1])
@@ -57,8 +57,8 @@ func TestTimeoutReader_Read(t *testing.T) {
 	// }
 
 	pr, pw := io.Pipe()
-	r = iohelper.NewTimeoutReader(pr, len(input))
-	go r.StartBackgroundReading()
+	r = iohelper.NewTimeoutReader(pr)
+	go r.FallbackReading()
 
 	// startTime = time.Now()
 	stopSig := make(chan struct{})
@@ -71,7 +71,7 @@ func TestTimeoutReader_Read(t *testing.T) {
 	}()
 
 	var count int
-	for r.WaitUntilHasData(stopSig) {
+	for r.WaitForData(stopSig) {
 		n, _ := r.Read(time.Millisecond, buf[0:])
 		assert.Greater(t, n, 0)
 		count++
@@ -118,12 +118,12 @@ func TestTimeoutReader_ReadNet(t *testing.T) {
 		_ = clientConn.Close()
 	}()
 
-	tr := iohelper.NewTimeoutReader(clientConn, len(testData))
-	go tr.StartBackgroundReading()
+	tr := iohelper.NewTimeoutReader(clientConn)
+	go tr.FallbackReading()
 
 	buf := make([]byte, len(testData)+1)
 	count := 0
-	for tr.WaitUntilHasData(context.TODO().Done()) {
+	for tr.WaitForData(context.TODO().Done()) {
 		count++
 		n, err := tr.Read(time.Second, buf[0:])
 		if count == 6 {

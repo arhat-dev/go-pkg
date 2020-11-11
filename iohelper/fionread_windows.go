@@ -18,6 +18,6 @@ package iohelper
 
 import "syscall"
 
-func CheckBytesToRead(fd uintptr) (int, error) {
+func CheckBytesToRead(fd uintptr) (int, syscall.Errno) {
 	return 0, syscall.EINVAL
 }
