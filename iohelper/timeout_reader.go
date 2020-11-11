@@ -304,7 +304,8 @@ func (t *TimeoutReader) WaitForData(stopSig <-chan struct{}) bool {
 
 // Read performs a read operation with timeout option, function will return when
 // maxWait exceeded or p is full
-// if the function returned because of timeout, the returned error is os.ErrDeadlineExceeded
+// if the function returned because of timeout, the returned error is ErrDeadlineExceeded
+// for go1.15 and on, it's os.ErrDeadlineExceeded
 func (t *TimeoutReader) Read(maxWait time.Duration, p []byte) (n int, err error) {
 loop:
 	for {
