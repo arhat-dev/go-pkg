@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -155,7 +156,6 @@ func TestTimeoutReader_ReadPipe(t *testing.T) {
 	go func() {
 		for i := 0; i < 5; i++ {
 			_, err2 := pw.Write([]byte(testData))
-			println("wrote")
 			assert.NoError(t, err2, "failed to write test data")
 			time.Sleep(5 * time.Second)
 		}
@@ -185,5 +185,11 @@ func TestTimeoutReader_ReadPipe(t *testing.T) {
 		}
 	}
 
-	assert.EqualValues(t, 6, count)
+	if runtime.GOOS == "windows" {
+		// on windows, it will fallback to one byte read mode
+		// so we actually can do exactly 5 wait
+		assert.EqualValues(t, 5, count)
+	} else {
+		assert.EqualValues(t, 6, count)
+	}
 }
