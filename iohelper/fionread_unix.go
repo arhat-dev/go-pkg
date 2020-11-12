@@ -1,4 +1,4 @@
-// +build !windows,!plan9,!solaris
+// +build !windows,!plan9,!solaris,!aix
 
 /*
 Copyright 2020 The arhat.dev Authors.
