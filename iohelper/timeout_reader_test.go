@@ -176,7 +176,12 @@ func TestTimeoutReader_Read(t *testing.T) {
 			if count == 6 {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err, "failed to read test data")
+				if runtime.GOOS == "windows" {
+					assert.Equal(t, err, iohelper.ErrDeadlineExceeded)
+				} else {
+					assert.NoError(t, err, "failed to read test data")
+				}
+
 				assert.EqualValues(t, testData, string(data))
 				assert.Greater(t, len(data), 0)
 			}
