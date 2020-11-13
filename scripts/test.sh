@@ -21,7 +21,7 @@ unit() {
 
   GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) CGO_ENABLED=1 \
     go test -mod=readonly -v -race -failfast -covermode=atomic \
-    -coverprofile "coverage.${pkg}.txt" -coverpkg "./${pkg}" "./${pkg}"
+    -coverprofile "coverage.${pkg}.txt" -coverpkg "./..." "./${pkg}"
 }
 
 coverage() {
@@ -36,7 +36,7 @@ benchmark() {
   GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) CGO_ENABLED=1 \
     go test -timeout 30m -mod=readonly -bench '^Benchmark.*' \
     -benchmem -covermode=atomic -coverprofile "coverage.bench.${pkg}.txt" \
-    -benchtime 5s -run '^Benchmark.*' -v -coverpkg "./${pkg}" "./${pkg}"
+    -benchtime 5s -run '^Benchmark.*' -v -coverpkg "./..." "./${pkg}"
 }
 
 TARGET=$(printf "%s" "$@" | cut -d. -f2)

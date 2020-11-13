@@ -18,6 +18,7 @@ package iohelper_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -32,164 +33,302 @@ import (
 )
 
 func TestTimeoutReader_Read(t *testing.T) {
-	const input = "test"
-
-	// startTime := time.Now()
-	r := iohelper.NewTimeoutReader(strings.NewReader(input))
-	go r.FallbackReading()
-
-	buf := make([]byte, len(input)+1)
-
-	n, _ := r.Read(time.Second, buf[0:])
-	assert.Equal(t, io.EOF, r.Error())
-	assert.Equal(t, input, string(buf[:n]))
-	// if elp := time.Since(startTime); elp < time.Second {
-	// 	assert.FailNow(t, "timout failed", "elp", elp)
-	// }
-
-	r = iohelper.NewTimeoutReader(strings.NewReader(input))
-	go r.FallbackReading()
-
-	// startTime = time.Now()
-	n, _ = r.Read(time.Second, buf[0:len(input)-1])
-	// assert.Equal(t, io.EOF, r.Error())
-	assert.Equal(t, input[:len(input)-1], string(buf[:n]))
-	// if elp := time.Since(startTime); elp > time.Millisecond {
-	// 	assert.FailNow(t, "non-timout failed", "elp", elp)
-	// }
-
-	pr, pw := io.Pipe()
-	r = iohelper.NewTimeoutReader(pr)
-	go r.FallbackReading()
-
-	// startTime = time.Now()
-	stopSig := make(chan struct{})
-	go func() {
-		for i := 0; i < 10; i++ {
-			time.Sleep(time.Millisecond * 100)
-			_, _ = pw.Write([]byte(input))
-		}
-		_ = pw.Close()
-	}()
-
-	var count int
-	for r.WaitForData(stopSig) {
-		n, _ := r.Read(time.Millisecond, buf[0:])
-		assert.Greater(t, n, 0)
-		count++
-	}
-	assert.GreaterOrEqual(t, count, 10)
-	assert.Equal(t, io.EOF, r.Error())
-
-	// if elp := time.Since(startTime); elp < time.Second {
-	// 	assert.FailNow(t, "close failed", "elp", elp)
-	// }
-}
-
-func TestTimeoutReader_ReadNet(t *testing.T) {
 	const testData = "test"
 
-	l, err := net.Listen("tcp", "localhost:0")
-	if !assert.NoError(t, err, "failed to listen tcp addr for test") {
-		return
-	}
+	t.Run("one byte read", func(t *testing.T) {
+		// startTime := time.Now()
+		r := iohelper.NewTimeoutReader(strings.NewReader(testData))
+		go r.FallbackReading(context.Background().Done())
 
-	srvClosed := make(chan struct{})
-	go func() {
-		srvConn, err2 := l.Accept()
-		if !assert.NoError(t, err2, "failed to accept conn") {
+		buf := make([]byte, len(testData)+1)
+
+		data, _, _ := r.Read(time.Second, buf[0:])
+		assert.Equal(t, io.EOF, r.Error())
+		assert.Equal(t, testData, string(data))
+		// if elp := time.Since(startTime); elp < time.Second {
+		// 	assert.FailNow(t, "timout failed", "elp", elp)
+		// }
+
+		r = iohelper.NewTimeoutReader(strings.NewReader(testData))
+		go r.FallbackReading(context.Background().Done())
+
+		// startTime = time.Now()
+		data, _, _ = r.Read(time.Second, buf[0:len(testData)-1])
+		// assert.Equal(t, io.EOF, r.Error())
+		assert.Equal(t, testData[:len(testData)-1], string(data))
+		// if elp := time.Since(startTime); elp > time.Millisecond {
+		// 	assert.FailNow(t, "non-timout failed", "elp", elp)
+		// }
+
+		pr, pw := io.Pipe()
+		r = iohelper.NewTimeoutReader(pr)
+		go r.FallbackReading(context.Background().Done())
+
+		// startTime = time.Now()
+		stopSig := make(chan struct{})
+		go func() {
+			for i := 0; i < 10; i++ {
+				time.Sleep(time.Millisecond * 100)
+				_, _ = pw.Write([]byte(testData))
+			}
+			_ = pw.Close()
+		}()
+
+		var count int
+		for r.WaitForData(stopSig) {
+			data, _, _ := r.Read(time.Millisecond, buf[0:])
+			assert.Greater(t, len(data), 0)
+			count++
+		}
+		assert.GreaterOrEqual(t, count, 10)
+		assert.Equal(t, io.EOF, r.Error())
+
+		// if elp := time.Since(startTime); elp < time.Second {
+		// 	assert.FailNow(t, "close failed", "elp", elp)
+		// }
+	})
+
+	t.Run("setReadDeadline full support", func(t *testing.T) {
+		l, err := net.Listen("tcp", "localhost:0")
+		if !assert.NoError(t, err, "failed to listen tcp addr for test") {
 			return
 		}
-		for i := 0; i < 5; i++ {
-			_, err2 = srvConn.Write([]byte(testData))
-			assert.NoError(t, err2, "failed to write test data")
-			time.Sleep(5 * time.Second)
+
+		srvClosed := make(chan struct{})
+		go func() {
+			srvConn, err2 := l.Accept()
+			if !assert.NoError(t, err2, "failed to accept conn") {
+				return
+			}
+			for i := 0; i < 5; i++ {
+				_, err2 = srvConn.Write([]byte(testData))
+				assert.NoError(t, err2, "failed to write test data")
+				time.Sleep(5 * time.Second)
+			}
+
+			_ = srvConn.Close()
+			close(srvClosed)
+		}()
+
+		clientConn, err := net.Dial("tcp", l.Addr().String())
+		if !assert.NoError(t, err, "failed to create test connection") {
+			return
 		}
 
-		_ = srvConn.Close()
-		close(srvClosed)
-	}()
+		go func() {
+			<-srvClosed
+			_ = clientConn.Close()
+		}()
 
-	clientConn, err := net.Dial("tcp", l.Addr().String())
-	if !assert.NoError(t, err, "failed to create test connection") {
-		return
-	}
+		tr := iohelper.NewTimeoutReader(clientConn)
+		go tr.FallbackReading(context.Background().Done())
 
-	go func() {
-		<-srvClosed
-		_ = clientConn.Close()
-	}()
+		buf := make([]byte, len(testData)+1)
+		count := 0
+		for tr.WaitForData(context.TODO().Done()) {
+			data, _, err := tr.Read(time.Second, buf[0:])
+			if err == iohelper.ErrDeadlineExceeded && len(data) == 0 {
+				continue
+			}
 
-	tr := iohelper.NewTimeoutReader(clientConn)
-	go tr.FallbackReading()
-
-	buf := make([]byte, len(testData)+1)
-	count := 0
-	for tr.WaitForData(context.TODO().Done()) {
-		n, err := tr.Read(time.Second, buf[0:])
-		if err == iohelper.ErrDeadlineExceeded && n == 0 {
-			continue
+			count++
+			if count == 6 {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err, "failed to read test data")
+				assert.EqualValues(t, testData, string(data))
+				assert.Greater(t, len(data), 0)
+			}
 		}
 
-		count++
-		if count == 6 {
-			assert.Error(t, err)
+		assert.EqualValues(t, 6, count)
+	})
+
+	t.Run("setReadDeadline partial support", func(t *testing.T) {
+		pr, pw, err := os.Pipe()
+		if !assert.NoError(t, err, "failed to create os pipe") {
+			return
+		}
+
+		go func() {
+			for i := 0; i < 5; i++ {
+				_, err2 := pw.Write([]byte(testData))
+				assert.NoError(t, err2, "failed to write test data")
+				time.Sleep(5 * time.Second)
+			}
+
+			_ = pw.Close()
+			_ = pr.Close()
+		}()
+
+		tr := iohelper.NewTimeoutReader(pr)
+		go tr.FallbackReading(context.Background().Done())
+
+		buf := make([]byte, len(testData)+1)
+		count := 0
+		for tr.WaitForData(context.TODO().Done()) {
+			data, _, err := tr.Read(time.Second, buf[0:])
+			if err == iohelper.ErrDeadlineExceeded && len(data) == 0 {
+				continue
+			}
+
+			count++
+			if count == 6 {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err, "failed to read test data")
+				assert.EqualValues(t, testData, string(data))
+				assert.Greater(t, len(data), 0)
+			}
+		}
+
+		if runtime.GOOS == "windows" {
+			// on windows, it will fallback to one byte read mode
+			// so we actually can do exactly 5 wait
+			assert.EqualValues(t, 5, count)
 		} else {
-			assert.NoError(t, err, "failed to read test data")
-			assert.EqualValues(t, testData, string(buf[:n]))
-			assert.Greater(t, n, 0)
+			assert.EqualValues(t, 6, count)
 		}
-	}
-
-	assert.EqualValues(t, 6, count)
+	})
 }
 
-// Use os.Pipe to test reader has SetReadDeadline but actually do not support it
-func TestTimeoutReader_ReadPipe(t *testing.T) {
-	const testData = "test"
-
-	pr, pw, err := os.Pipe()
-	if !assert.NoError(t, err, "failed to create os pipe") {
-		return
+func BenchmarkTimeoutReader_Read(b *testing.B) {
+	type testCase struct {
+		chunkSize int
+		timeout   time.Duration
 	}
 
-	go func() {
-		for i := 0; i < 5; i++ {
-			_, err2 := pw.Write([]byte(testData))
-			assert.NoError(t, err2, "failed to write test data")
-			time.Sleep(5 * time.Second)
-		}
-
-		_ = pw.Close()
-		_ = pr.Close()
-	}()
-
-	tr := iohelper.NewTimeoutReader(pr)
-	go tr.FallbackReading()
-
-	buf := make([]byte, len(testData)+1)
-	count := 0
-	for tr.WaitForData(context.TODO().Done()) {
-		n, err := tr.Read(time.Second, buf[0:])
-		if err == iohelper.ErrDeadlineExceeded && n == 0 {
-			continue
-		}
-
-		count++
-		if count == 6 {
-			assert.Error(t, err)
-		} else {
-			assert.NoError(t, err, "failed to read test data")
-			assert.EqualValues(t, testData, string(buf[:n]))
-			assert.Greater(t, n, 0)
+	var testCases []testCase
+	for _, size := range []int{
+		64,
+		512,
+		4096,
+		32768,
+		65536,
+	} {
+		for _, timeout := range []time.Duration{
+			// time.Microsecond,
+			100 * time.Millisecond,
+		} {
+			testCases = append(testCases, testCase{
+				chunkSize: size,
+				timeout:   timeout,
+			})
 		}
 	}
 
-	if runtime.GOOS == "windows" {
-		// on windows, it will fallback to one byte read mode
-		// so we actually can do exactly 5 wait
-		assert.EqualValues(t, 5, count)
-	} else {
-		assert.EqualValues(t, 6, count)
+	for _, c := range testCases {
+		b.Run(fmt.Sprintf("%d-%s", c.chunkSize, c.timeout.String()), func(b *testing.B) {
+			b.Run("setReadDeadline full support", func(b *testing.B) {
+				l, err := net.Listen("tcp", "localhost:0")
+				if !assert.NoError(b, err, "failed to listen tcp addr for test") {
+					return
+				}
+
+				expectedSize := b.N * (c.chunkSize / 8)
+				go func() {
+					srvConn, err2 := l.Accept()
+					if !assert.NoError(b, err2, "failed to accept conn") {
+						return
+					}
+
+					testData := make([]byte, c.chunkSize/8)
+					for i := 0; i < b.N; i++ {
+						_, _ = srvConn.Write(testData)
+					}
+
+					_ = srvConn.Close()
+				}()
+
+				clientConn, err := net.Dial("tcp", l.Addr().String())
+				if !assert.NoError(b, err, "failed to create test connection") {
+					return
+				}
+
+				tr := iohelper.NewTimeoutReader(clientConn)
+				go tr.FallbackReading(context.Background().Done())
+				buf := make([]byte, c.chunkSize)
+
+				neverStop := context.Background().Done()
+				actualSize := 0
+				b.ResetTimer()
+				for tr.WaitForData(neverStop) {
+					data, _, _ := tr.Read(c.timeout, buf[0:])
+					actualSize += len(data)
+					if actualSize == expectedSize {
+						b.StopTimer()
+						_ = clientConn.Close()
+					}
+				}
+
+				assert.EqualValues(b, expectedSize, actualSize)
+			})
+
+			b.Run("setReadDeadline partial support", func(b *testing.B) {
+				pr, pw, err := os.Pipe()
+				if !assert.NoError(b, err, "failed to create os pipe") {
+					return
+				}
+
+				expectedSize := b.N * (c.chunkSize / 8)
+				go func() {
+					testData := make([]byte, c.chunkSize/8)
+					for i := 0; i < b.N; i++ {
+						_, _ = pw.Write(testData)
+					}
+
+					_ = pw.Close()
+				}()
+
+				tr := iohelper.NewTimeoutReader(pr)
+				go tr.FallbackReading(context.Background().Done())
+				buf := make([]byte, c.chunkSize)
+
+				neverStop := context.Background().Done()
+				actualSize := 0
+				b.ResetTimer()
+				for tr.WaitForData(neverStop) {
+					data, _, _ := tr.Read(c.timeout, buf[0:])
+					actualSize += len(data)
+					if actualSize == expectedSize {
+						b.StopTimer()
+						_ = pr.Close()
+					}
+				}
+
+				assert.EqualValues(b, expectedSize, actualSize)
+			})
+
+			b.Run("one byte read", func(b *testing.B) {
+				pr, pw := io.Pipe()
+
+				expectedSize := b.N * (c.chunkSize / 8)
+				go func() {
+					testData := make([]byte, c.chunkSize/8)
+					for i := 0; i < b.N; i++ {
+						_, _ = pw.Write(testData)
+					}
+				}()
+
+				tr := iohelper.NewTimeoutReader(pr)
+				go tr.FallbackReading(context.Background().Done())
+				buf := make([]byte, c.chunkSize)
+
+				neverStop := context.Background().Done()
+				actualSize := 0
+				b.ResetTimer()
+				for tr.WaitForData(neverStop) {
+					data, _, _ := tr.Read(c.timeout, buf[0:])
+					actualSize += len(data)
+					if actualSize == expectedSize {
+						b.StopTimer()
+						_ = pr.Close()
+						_ = pw.Close()
+					}
+				}
+
+				assert.EqualValues(b, expectedSize, actualSize)
+			})
+		})
 	}
 }
