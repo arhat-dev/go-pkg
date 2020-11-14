@@ -1,4 +1,4 @@
-// +build !nonetwork_all
+// +build !nonethelper
 
 /*
 Copyright 2020 The arhat.dev Authors.

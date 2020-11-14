@@ -1,5 +1,5 @@
-// +build !nonetwork_all
-// +build !nonetwork_pipenet
+// +build !nonethelper
+// +build !nonethelper_pipenet
 
 /*
 Copyright 2020 The arhat.dev Authors.

@@ -19,20 +19,30 @@ package nethelper_test
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"net"
+	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/pion/dtls/v2"
 	"github.com/stretchr/testify/assert"
 
 	"arhat.dev/pkg/nethelper"
+	"arhat.dev/pkg/pipenet"
+
 	_ "arhat.dev/pkg/nethelper/piondtls"
 	_ "arhat.dev/pkg/nethelper/pipenet"
 	_ "arhat.dev/pkg/nethelper/stdnet"
-	"arhat.dev/pkg/pipenet"
 )
 
 func TestListenAndDial(t *testing.T) {
+	caBytes, err := ioutil.ReadFile("../test/testdata/tls-ca.pem")
+	if !assert.NoError(t, err, "failed to load ca cert") {
+		return
+	}
+
 	serverCert, err := tls.LoadX509KeyPair("../test/testdata/tls-cert.pem", "../test/testdata/tls-key.pem")
 	if !assert.NoError(t, err, "failed to load server tls cert pair:") {
 		return
@@ -43,13 +53,20 @@ func TestListenAndDial(t *testing.T) {
 		return
 	}
 
+	cp := x509.NewCertPool()
+	if !assert.True(t, cp.AppendCertsFromPEM(caBytes)) {
+		return
+	}
+
 	serverTLS := &tls.Config{
+		ClientCAs:          cp,
 		Certificates:       []tls.Certificate{serverCert},
 		ClientAuth:         tls.RequireAndVerifyClientCert,
 		InsecureSkipVerify: false,
 	}
 
 	clientTLS := &tls.Config{
+		RootCAs:            cp,
 		Certificates:       []tls.Certificate{clientCert},
 		ServerName:         "localhost",
 		InsecureSkipVerify: false,
@@ -163,8 +180,12 @@ func TestListenAndDial(t *testing.T) {
 			}
 			return ""
 		}(), func(t *testing.T) {
+			address := "localhost:0"
+			if test.network == "pipe" && runtime.GOOS == "windows" {
+				address = `\\.\pipe\test-` + strconv.FormatBool(test.tlsConfig != nil)
+			}
 			lRaw, err := nethelper.Listen(
-				context.TODO(), test.listenConfig, test.network, "localhost:0", test.tlsConfig,
+				context.TODO(), test.listenConfig, test.network, address, test.tlsConfig,
 			)
 			if !assert.NoError(t, err) {
 				return

@@ -1,5 +1,5 @@
-// +build !nonetwork_all
-// +build !nonetwork_piondtls
+// +build !nonethelper
+// +build !nonethelper_piondtls
 
 /*
 Copyright 2020 The arhat.dev Authors.

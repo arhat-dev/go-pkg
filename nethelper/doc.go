@@ -1,5 +1,3 @@
-// +build !nonethelper
-
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -16,12 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package nethelper wraps various kind of network support with universal
+// api to dial and listen
+// you need to import according packages to enabled certain network supprot
+//
+// to support
+// 		tcp/tcp4/tcp6/unix (with or without tls)
+// 		udp/udp4/udp6 (without tls)
+// 		unixpacket/unixgram (with or without tls)
+//  import _ "arhat.dev/pkg/nethelper/stdnet"
+//
+// to support
+// 		udp/udp4/udp6 (with tls)
+//  import _ "arhat.dev/pkg/nethelper/piondtls"
+//
+// to support
+// 		pipe (with or without tls)
+//  import _ "arhat.dev/pkg/nethelper/pipenet"
 package nethelper
-
-import "errors"
-
-var (
-	ErrDialerInvalid       = errors.New("invalid dialer")
-	ErrTLSConfigInvalid    = errors.New("invalid tls config")
-	ErrListenConfigInvalid = errors.New("invalid listen config")
-)

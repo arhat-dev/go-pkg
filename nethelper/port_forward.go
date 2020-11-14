@@ -1,3 +1,5 @@
+// +build !nonethelper
+
 /*
 Copyright 2020 The arhat.dev Authors.
 
@@ -18,10 +20,7 @@ package nethelper
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"net"
-	"strconv"
 )
 
 const (
@@ -32,10 +31,11 @@ const (
 // the parameters:
 // 	ctx is used to cancel dial operation
 // 	dialer is optional for custom network dial options
-// 	address is the endpoint address
-// 	protocol is the protocol name, e.g. tcp, udp, tcp4
+// 	network is the network name, e.g. tcp, udp, tcp4
+// 	addr is the endpoint address
 // 	upstream is the data channel to the endpoint
 // 	packetReadBuf is the buffer used for udp/ip/unix connection
+//
 // the return values:
 // 	downstream is used to read data sent from the forwarded port and close connection
 // 	closeWrite is intended to close write in stream oriented connection
@@ -43,10 +43,9 @@ const (
 //	err if not nil the port forward failed
 func PortForward(
 	ctx context.Context,
-	dialer *net.Dialer,
-	address string,
-	protocol string,
-	port int32,
+	dialer interface{},
+	network string,
+	addr string,
 	upstream io.Reader,
 	packetReadBuf []byte,
 ) (
@@ -55,41 +54,32 @@ func PortForward(
 	readErrCh <-chan error,
 	err error,
 ) {
-	if dialer == nil {
-		dialer = new(net.Dialer)
-	}
-
-	conn, err := dialer.DialContext(
-		ctx, protocol,
-		net.JoinHostPort(address, strconv.FormatInt(int64(port), 10)),
-	)
+	conn, err := Dial(ctx, dialer, network, addr, nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	downstream = conn
-	closeWrite = func() {}
-
+	// find close write support
 	switch c := conn.(type) {
-	case *net.UnixConn:
-		// unix connection can be packet or stream base, check proto
-		errCh := make(chan error)
-		readErrCh = errCh
+	case interface {
+		CloseWrite() error
+	}:
 		closeWrite = func() {
 			_ = c.CloseWrite()
 		}
+	default:
+		// nop
+		closeWrite = func() {}
+	}
 
-		go handleCopyConn(ctx, c, upstream, errCh, packetReadBuf)
-	case *net.TCPConn:
-		errCh := make(chan error)
-		readErrCh = errCh
-		closeWrite = func() {
-			_ = c.CloseWrite()
-		}
-
+	// find read from support
+	errCh := make(chan error)
+	switch c := conn.(type) {
+	case io.ReaderFrom:
+		// take advantage of splice syscall if possible (usually used in tcp)
 		go func() {
 			defer close(errCh)
-			// take advantage of splice syscall if possible
+
 			_, err2 := c.ReadFrom(upstream)
 			if err2 != nil {
 				select {
@@ -98,20 +88,12 @@ func PortForward(
 				}
 			}
 		}()
-	case net.PacketConn:
-		// udp, ip connection
-		errCh := make(chan error)
-		readErrCh = errCh
-		go handleCopyConn(ctx, conn, upstream, errCh, packetReadBuf)
 	default:
-		// unknown connection, how could it succeeded?
-		if conn != nil {
-			_ = conn.Close()
-		}
-		return nil, nil, nil, fmt.Errorf("unexpected %q connection", protocol)
+		// other kind of connections will use copy
+		go handleCopyConn(ctx, conn, upstream, errCh, packetReadBuf)
 	}
 
-	return
+	return conn, closeWrite, errCh, nil
 }
 
 func handleCopyConn(
