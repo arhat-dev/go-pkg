@@ -20,6 +20,7 @@ package nethelper
 
 import (
 	"context"
+	"net"
 
 	"arhat.dev/pkg/wellknownerrors"
 )
@@ -48,7 +49,7 @@ func Register(network string, supportTLS bool, listen ListenFunc, dial DialFunc)
 	}
 }
 
-func Dial(ctx context.Context, dialer interface{}, network, addr string, tlsConfig interface{}) (interface{}, error) {
+func Dial(ctx context.Context, dialer interface{}, network, addr string, tlsConfig interface{}) (net.Conn, error) {
 	n, ok := supportedNetwork[key{
 		network:    network,
 		supportTLS: tlsConfig != nil,
