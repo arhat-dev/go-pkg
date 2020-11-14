@@ -36,6 +36,7 @@ test.unit: \
 	test.unit.iohelper \
 	test.unit.kubehelper \
 	test.unit.log \
+	test.unit.nethelper \
 	test.unit.patchhelper \
 	test.unit.perfhelper \
 	test.unit.pipenet \
@@ -57,6 +58,7 @@ test.benchmark: \
 	test.benchmark.hashhelper \
 	test.benchmark.iohelper \
 	test.benchmark.log \
+	test.benchmark.nethelper \
 	test.benchmark.patchhelper \
 	test.benchmark.perfhelper \
 	test.benchmark.pipenet \
