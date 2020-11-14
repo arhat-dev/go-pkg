@@ -22,13 +22,14 @@ import (
 	"net"
 	"testing"
 
+	"github.com/pion/dtls/v2"
+	"github.com/stretchr/testify/assert"
+
 	"arhat.dev/pkg/nethelper"
 	_ "arhat.dev/pkg/nethelper/piondtls"
 	_ "arhat.dev/pkg/nethelper/pipenet"
 	_ "arhat.dev/pkg/nethelper/stdnet"
 	"arhat.dev/pkg/pipenet"
-	"github.com/pion/dtls/v2"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestListenAndDial(t *testing.T) {
@@ -184,8 +185,8 @@ func TestListenAndDial(t *testing.T) {
 				addr = l.Addr()
 				go func() {
 					for {
-						conn, err := l.Accept()
-						if err != nil {
+						conn, err2 := l.Accept()
+						if err2 != nil {
 							return
 						}
 						_ = conn.Close()
