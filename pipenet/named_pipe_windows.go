@@ -38,22 +38,22 @@ func (c *ListenConfig) ListenPipe(path string) (net.Listener, error) {
 }
 
 func (d *Dialer) Dial(path string) (net.Conn, error) {
-	return d.DialPipe(nil, &PipeAddr{Path: path})
+	return d.DialPipe(&PipeAddr{Path: path})
 }
 
 func (d *Dialer) DialContext(ctx context.Context, path string) (net.Conn, error) {
-	return d.DialPipeContext(ctx, nil, &PipeAddr{Path: path})
+	return d.DialPipeContext(ctx, &PipeAddr{Path: path})
 }
 
-func (d *Dialer) DialPipe(_, raddr *PipeAddr) (net.Conn, error) {
-	return d.DialPipeContext(context.TODO(), nil, raddr)
+func (d *Dialer) DialPipe(raddr *PipeAddr) (net.Conn, error) {
+	return d.DialPipeContext(context.Background(), raddr)
 }
 
-func (d *Dialer) DialPipeContext(ctx context.Context, _, raddr *PipeAddr) (net.Conn, error) {
+func (d *Dialer) DialPipeContext(ctx context.Context, raddr *PipeAddr) (net.Conn, error) {
 	conn, err := winio.DialPipeContext(ctx, raddr.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	return &PipeConfig{conn}, nil
+	return &PipeConn{conn}, nil
 }

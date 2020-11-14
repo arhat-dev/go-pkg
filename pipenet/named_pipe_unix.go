@@ -407,27 +407,28 @@ func (c *ListenConfig) ListenPipe(path string) (net.Listener, error) {
 }
 
 func (d *Dialer) Dial(path string) (net.Conn, error) {
-	return d.DialPipe(nil, &PipeAddr{Path: path})
+	return d.DialPipe(&PipeAddr{Path: path})
 }
 
 func (d *Dialer) DialContext(ctx context.Context, path string) (net.Conn, error) {
-	return d.DialPipeContext(ctx, nil, &PipeAddr{Path: path})
+	return d.DialPipeContext(ctx, &PipeAddr{Path: path})
 }
 
-func (d *Dialer) DialPipe(laddr *PipeAddr, raddr *PipeAddr) (net.Conn, error) {
-	return d.DialPipeContext(context.TODO(), laddr, raddr)
+func (d *Dialer) DialPipe(raddr *PipeAddr) (net.Conn, error) {
+	return d.DialPipeContext(context.Background(), raddr)
 }
 
-func (d *Dialer) DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ net.Conn, err error) {
+func (d *Dialer) DialPipeContext(ctx context.Context, raddr *PipeAddr) (_ net.Conn, err error) {
 	if raddr == nil {
 		return nil, &net.AddrError{Err: "no remote address provided"}
 	}
 
-	if laddr == nil || laddr.Path == "" {
+	var laddr *PipeAddr
+	if d.LocalPath == "" {
 		laddr = &PipeAddr{Path: os.TempDir()}
 	} else {
 		var localPath string
-		localPath, err = filepath.Abs(laddr.Path)
+		localPath, err = filepath.Abs(d.LocalPath)
 		if err != nil {
 			return nil, err
 		}

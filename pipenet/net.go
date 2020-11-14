@@ -79,20 +79,27 @@ func ListenPipe(path string) (net.Listener, error) {
 }
 
 // Dialer for pipe network
-type Dialer struct{}
+type Dialer struct {
+	LocalPath string
+}
 
 func Dial(path string) (net.Conn, error) {
-	return (&Dialer{}).Dial(path)
+	return DialPipe(nil, &PipeAddr{Path: path})
 }
 
 func DialContext(ctx context.Context, path string) (net.Conn, error) {
-	return (&Dialer{}).DialContext(ctx, path)
+	return DialPipeContext(ctx, nil, &PipeAddr{Path: path})
 }
 
 func DialPipe(laddr *PipeAddr, raddr *PipeAddr) (net.Conn, error) {
-	return (&Dialer{}).DialPipe(laddr, raddr)
+	return DialPipeContext(context.Background(), laddr, raddr)
 }
 
 func DialPipeContext(ctx context.Context, laddr *PipeAddr, raddr *PipeAddr) (_ net.Conn, err error) {
-	return (&Dialer{}).DialPipeContext(ctx, laddr, raddr)
+	var localPath string
+	if laddr != nil {
+		localPath = laddr.Path
+	}
+
+	return (&Dialer{LocalPath: localPath}).DialPipeContext(ctx, raddr)
 }
