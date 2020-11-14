@@ -6,6 +6,8 @@ require (
 	github.com/Microsoft/go-winio v0.4.15
 	github.com/creack/pty v1.1.11
 	github.com/itchyny/gojq v0.11.2
+	github.com/pion/dtls/v2 v2.0.3
+	github.com/pion/udp v0.1.0
 	github.com/prometheus/client_golang v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
