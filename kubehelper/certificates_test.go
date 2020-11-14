@@ -41,6 +41,18 @@ func TestCreateCertificateSigningRequestClient(t *testing.T) {
 				}},
 			},
 		},
+		{
+			name: "v1",
+			resource: &metav1.APIResourceList{
+				GroupVersion: "certificates.k8s.io/v1",
+				APIResources: []metav1.APIResource{{
+					Name:         "certificatesigningrequests",
+					SingularName: "",
+					Namespaced:   false,
+					Kind:         "CertificateSigningRequest",
+				}},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -49,8 +61,8 @@ func TestCreateCertificateSigningRequestClient(t *testing.T) {
 			c := CreateCertificateSigningRequestClient([]*metav1.APIResourceList{test.resource}, k)
 
 			switch test.name {
-			//case "v1":
-			//	assert.NotNil(t, c.V1Client)
+			case "v1":
+				assert.NotNil(t, c.V1Client)
 			case "v1beta1":
 				assert.NotNil(t, c.V1b1Client)
 			default:
