@@ -64,22 +64,22 @@ func TestPipeNet(t *testing.T) {
 
 			var l1, l2 net.Listener
 			if runtime.GOOS == "windows" {
-				l1, err = ListenPipe(`\\.\pipe\test-1`, os.TempDir(), 0600)
+				l1, err = ListenPipe(`\\.\pipe\test-1`)
 				if !assert.NoError(t, err, "failed to listen pipe 1") {
 					return
 				}
 
-				l2, err = ListenPipe(`\\.\pipe\test-2`, "", 0600)
+				l2, err = ListenPipe(`\\.\pipe\test-2`)
 				if !assert.NoError(t, err, "failed to listen pipe 2") {
 					return
 				}
 			} else {
-				l1, err = ListenPipe("", os.TempDir(), 0600)
+				l1, err = ListenPipe("")
 				if !assert.NoError(t, err, "failed to listen random pipe addr") {
 					return
 				}
 
-				l2, err = ListenPipe(listenPipePath, "", 0600)
+				l2, err = ListenPipe(listenPipePath)
 				if !assert.NoError(t, err, "failed to listen pipe addr %q", listenPipePath) {
 					return
 				}
@@ -170,7 +170,7 @@ func BenchmarkPipeNet(b *testing.B) {
 				listenPath = `\\.\pipe\benchmark-` + fmt.Sprintf("%d-%d", seq, chunkSize)
 			}
 
-			pipeL, err := ListenPipe(listenPath, os.TempDir(), 0600)
+			pipeL, err := ListenPipe(listenPath)
 			if err != nil {
 				b.Error(err)
 				return
