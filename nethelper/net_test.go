@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/pion/dtls/v2"
 	"github.com/stretchr/testify/assert"
 
 	"arhat.dev/pkg/nethelper"
@@ -149,28 +148,28 @@ func TestListenAndDial(t *testing.T) {
 			listenerType: new(net.UDPConn),
 			connType:     new(net.UDPConn),
 		},
-		// udp-dtls
-		{
-			network: "udp",
-			// listenerType:    new(dtls.listener),
-			connType:        new(dtls.Conn),
-			tlsConfig:       serverTLS,
-			clientTLSConfig: clientTLS,
-		},
-		{
-			network: "udp4",
-			// listenerType:    new(dtls.listener),
-			connType:        new(dtls.Conn),
-			tlsConfig:       serverTLS,
-			clientTLSConfig: clientTLS,
-		},
-		{
-			network: "udp6",
-			// listenerType:    new(dtls.listener),
-			connType:        new(dtls.Conn),
-			tlsConfig:       serverTLS,
-			clientTLSConfig: clientTLS,
-		},
+		// udp-dtls (currently disabled due to https://github.com/pion/dtls/issues/279)
+		// {
+		// 	network: "udp",
+		// 	// listenerType:    new(dtls.listener),
+		// 	connType:        new(dtls.Conn),
+		// 	tlsConfig:       serverTLS,
+		// 	clientTLSConfig: clientTLS,
+		// },
+		// {
+		// 	network: "udp4",
+		// 	// listenerType:    new(dtls.listener),
+		// 	connType:        new(dtls.Conn),
+		// 	tlsConfig:       serverTLS,
+		// 	clientTLSConfig: clientTLS,
+		// },
+		// {
+		// 	network: "udp6",
+		// 	// listenerType:    new(dtls.listener),
+		// 	connType:        new(dtls.Conn),
+		// 	tlsConfig:       serverTLS,
+		// 	clientTLSConfig: clientTLS,
+		// },
 	}
 
 	for _, test := range tests {
