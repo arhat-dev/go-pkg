@@ -1,3 +1,5 @@
+// +build aix solaris
+
 /*
 Copyright 2020 The arhat.dev Authors.
 
