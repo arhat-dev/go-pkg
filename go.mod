@@ -12,8 +12,8 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
-	golang.org/x/sys v0.0.0-20201107080550-4d91cf3a1aaf
+	golang.org/x/crypto v0.0.0-20201112155050-0c6587e931a9
+	golang.org/x/sys v0.0.0-20201113233024-12cec1faf1ba
 	google.golang.org/grpc v1.33.2
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
