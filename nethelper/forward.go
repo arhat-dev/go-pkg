@@ -27,7 +27,7 @@ const (
 	defaultPacketReadBufSize = 65537
 )
 
-// PortForward network traffic
+// Forward network traffic
 // the parameters:
 // 	ctx is used to cancel dial operation
 // 	dialer is optional for custom network dial options
@@ -41,7 +41,7 @@ const (
 // 	closeWrite is intended to close write in stream oriented connection
 // 	readErrCh is used to check read error and whether donwstream reading finished
 //	err if not nil the port forward failed
-func PortForward(
+func Forward(
 	ctx context.Context,
 	dialer interface{},
 	network string,
@@ -90,30 +90,22 @@ func PortForward(
 		}()
 	default:
 		// other kind of connections will use copy
-		go handleCopyConn(ctx, conn, upstream, errCh, packetReadBuf)
+		go func() {
+			defer close(errCh)
+
+			if len(packetReadBuf) == 0 {
+				packetReadBuf = make([]byte, defaultPacketReadBufSize)
+			}
+
+			_, err2 := io.CopyBuffer(conn, upstream, packetReadBuf)
+			if err2 != nil {
+				select {
+				case <-ctx.Done():
+				case errCh <- err2:
+				}
+			}
+		}()
 	}
 
 	return conn, closeWrite, errCh, nil
-}
-
-func handleCopyConn(
-	ctx context.Context,
-	downstream io.Writer,
-	upstream io.Reader,
-	errCh chan<- error,
-	buf []byte,
-) {
-	defer close(errCh)
-
-	if len(buf) == 0 {
-		buf = make([]byte, defaultPacketReadBufSize)
-	}
-
-	_, err := io.CopyBuffer(downstream, upstream, buf)
-	if err != nil {
-		select {
-		case <-ctx.Done():
-		case errCh <- err:
-		}
-	}
 }
