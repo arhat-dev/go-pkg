@@ -377,7 +377,7 @@ func (t *TimeoutReader) Read(maxWait time.Duration, p []byte) (data []byte, shou
 
 		n, err = t.r.Read(p[1:])
 
-		n = n + 1
+		n++
 		p[0] = firstByte
 
 		if err != nil {
