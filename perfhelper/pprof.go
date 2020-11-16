@@ -19,9 +19,7 @@ limitations under the License.
 package perfhelper
 
 import (
-	"net/http"
-	pprofweb "net/http/pprof"
-	"runtime"
+	"arhat.dev/pkg/tlshelper"
 )
 
 type PProfConfig struct {
@@ -32,40 +30,6 @@ type PProfConfig struct {
 	CPUProfileFrequencyHz int `json:"cpuProfileFrequencyHz" yaml:"cpuProfileFrequencyHz"`
 	MutexProfileFraction  int `json:"mutexProfileFraction" yaml:"mutexProfileFraction"`
 	BlockProfileFraction  int `json:"blockProfileFraction" yaml:"blockProfileFraction"`
-}
 
-func (c *PProfConfig) CreateHTTPHandlerIfEnabled(applyProfileConfig bool) http.Handler {
-	if !c.Enabled {
-		return nil
-	}
-
-	if applyProfileConfig {
-		runtime.SetCPUProfileRate(c.CPUProfileFrequencyHz)
-		runtime.SetMutexProfileFraction(c.MutexProfileFraction)
-		runtime.SetBlockProfileRate(c.BlockProfileFraction)
-	}
-
-	mux := http.NewServeMux()
-
-	// index
-	mux.HandleFunc("/", pprofweb.Index)
-
-	// category
-	mux.HandleFunc("/cmdline", pprofweb.Cmdline)
-	mux.HandleFunc("/symbol", pprofweb.Symbol)
-	mux.HandleFunc("/trace", pprofweb.Trace)
-
-	// actual profile stats
-
-	// cpu profile
-	mux.HandleFunc("/profile", pprofweb.Profile)
-
-	mux.Handle("/allocs", pprofweb.Handler("allocs"))
-	mux.Handle("/block", pprofweb.Handler("block"))
-	mux.Handle("/goroutine", pprofweb.Handler("goroutine"))
-	mux.Handle("/heap", pprofweb.Handler("heap"))
-	mux.Handle("/mutex", pprofweb.Handler("mutex"))
-	mux.Handle("/threadcreate", pprofweb.Handler("threadcreate"))
-
-	return mux
+	TLS tlshelper.TLSConfig `json:"tls" yaml:"tls"`
 }
