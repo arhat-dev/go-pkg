@@ -141,7 +141,7 @@ func TestTimeoutReader_Read(t *testing.T) {
 			}
 		}
 
-		assert.EqualValues(t, 6, count)
+		assert.EqualValues(t, 5, count)
 	})
 
 	t.Run("setReadDeadline partial support", func(t *testing.T) {
@@ -187,13 +187,14 @@ func TestTimeoutReader_Read(t *testing.T) {
 			}
 		}
 
-		if runtime.GOOS == "windows" {
-			// on windows, it will fallback to one byte read mode
-			// so we actually can do exactly 5 wait
-			assert.EqualValues(t, 5, count)
-		} else {
-			assert.EqualValues(t, 6, count)
-		}
+		assert.EqualValues(t, 5, count)
+		//if runtime.GOOS == "windows" {
+		//	// on windows, it will fallback to one byte read mode
+		//	// so we actually can do exactly 5 wait
+		//
+		//} else {
+		//	assert.EqualValues(t, 6, count)
+		//}
 	})
 }
 
