@@ -20,13 +20,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPProfConfig_CreateHTTPHandlerIfEnabled(t *testing.T) {
-	const testHTTPPathPrefix = "/foo/"
+	const testHTTPPathPrefix = "/foo"
 	tests := []struct {
 		name      string
 		target    string
@@ -82,13 +83,15 @@ func TestPProfConfig_CreateHTTPHandlerIfEnabled(t *testing.T) {
 		Enabled: true,
 	}
 
-	h := config.CreateHTTPHandlerIfEnabled(true)
+	h := config.CreateHTTPHandlersIfEnabled(true)
 	if !assert.NotNil(t, h) {
 		return
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle(testHTTPPathPrefix, h)
+	for p, handler := range h {
+		mux.Handle(filepath.Join(testHTTPPathPrefix, p), handler)
+	}
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -97,7 +100,7 @@ func TestPProfConfig_CreateHTTPHandlerIfEnabled(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// req := httptest.NewRequest(http.MethodGet, testHTTPPathPrefix+test.target, nil)
 
-			resp, err := srv.Client().Get(srv.URL + testHTTPPathPrefix + test.target)
+			resp, err := srv.Client().Get(srv.URL + filepath.Join(testHTTPPathPrefix, test.target))
 			if test.expectErr {
 				assert.Error(t, err)
 				return
