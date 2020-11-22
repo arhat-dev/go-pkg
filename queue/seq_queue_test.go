@@ -17,6 +17,7 @@ limitations under the License.
 package queue
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -124,5 +125,30 @@ func TestSeqQueue(t *testing.T) {
 
 		assert.False(t, q.SetMaxSeq(MaxSeq))
 		assert.True(t, q.SetMaxSeq(MaxSeq-1))
+	})
+
+	t.Run("Random sequence", func(t *testing.T) {
+		rand.Shuffle(len(reversedSerial), func(i, j int) {
+			reversedSerial[i], reversedSerial[j] = reversedSerial[j], reversedSerial[i]
+		})
+
+		q := NewSeqQueue()
+		q.SetMaxSeq(MaxSeq)
+
+		var result []uint64
+		for idx, i := range reversedSerial {
+			data, complete := q.Offer(i, i)
+			for _, d := range data {
+				result = append(result, d.(uint64))
+			}
+
+			if idx == len(reversedSerial)-1 {
+				assert.True(t, complete)
+			} else {
+				assert.False(t, complete)
+			}
+		}
+
+		assert.EqualValues(t, sequentialSerial, result)
 	})
 }
