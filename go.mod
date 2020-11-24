@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201112155050-0c6587e931a9
-	golang.org/x/sys v0.0.0-20201113233024-12cec1faf1ba
+	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68
 	google.golang.org/grpc v1.33.2
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
@@ -29,6 +29,8 @@ require (
 	go.opentelemetry.io/otel/exporters/trace/zipkin v0.13.0
 	go.opentelemetry.io/otel/sdk v0.13.0
 )
+
+replace github.com/creack/pty => github.com/jeffreystoke/pty v1.1.12-0.20201124030714-6349ad9e79eb
 
 replace (
 	k8s.io/api => k8s.io/api v0.19.4
