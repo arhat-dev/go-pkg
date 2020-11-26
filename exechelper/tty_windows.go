@@ -28,8 +28,8 @@ func startCmdWithTty(
 ) (
 	doResize resizeFunc,
 	close func(),
-	stdin io.Writer,
-	stdout io.Reader,
+	stdin io.WriteCloser,
+	stdout io.ReadCloser,
 	err error,
 ) {
 	f, err := pty.Start(cmd)

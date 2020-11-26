@@ -48,8 +48,8 @@ type Cmd struct {
 	ExecCmd *exec.Cmd
 
 	// stdin/stdout set when created with tty enabled
-	TtyInput  io.Writer
-	TtyOutput io.Reader
+	TtyInput  io.WriteCloser
+	TtyOutput io.ReadCloser
 
 	doResize resizeFunc
 	cleanup  func()
