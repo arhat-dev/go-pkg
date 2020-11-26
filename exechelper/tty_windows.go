@@ -17,9 +17,43 @@ limitations under the License.
 package exechelper
 
 import (
-	"syscall"
+	"io"
+	"os/exec"
+
+	"github.com/creack/pty"
 )
 
-func getSysProcAttr(tty bool) *syscall.SysProcAttr {
-	return &syscall.SysProcAttr{}
+func startCmdWithTty(
+	cmd *exec.Cmd,
+) (
+	doResize resizeFunc,
+	close func(),
+	stdin io.Writer,
+	stdout io.Reader,
+	err error,
+) {
+	f, err := pty.Start(cmd)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	doResize = func(cols, rows uint32) error {
+		return pty.Setsize(f, &pty.Winsize{
+			Cols: uint16(cols), Rows: uint16(rows),
+		})
+	}
+
+	close = func() { _ = f.Close() }
+
+	switch t := f.(type) {
+	case *pty.WindowsPty:
+		stdin = t.InputPipe()
+		stdout = t.OutputPipe()
+	default:
+		// unreachable, defensive
+		stdin = f
+		stdout = f
+	}
+
+	return
 }

@@ -30,7 +30,7 @@ require (
 	go.opentelemetry.io/otel/sdk v0.13.0
 )
 
-replace github.com/creack/pty => github.com/jeffreystoke/pty v1.1.12-0.20201124030714-6349ad9e79eb
+replace github.com/creack/pty => github.com/jeffreystoke/pty v1.1.12-0.20201126134739-edcb6c516eae
 
 replace (
 	k8s.io/api => k8s.io/api v0.19.4
