@@ -6,14 +6,14 @@ require (
 	github.com/Microsoft/go-winio v0.4.15
 	github.com/creack/pty v1.1.11
 	github.com/itchyny/gojq v0.11.2
-	github.com/pion/dtls/v2 v2.0.3
+	github.com/pion/dtls/v2 v2.0.4
 	github.com/pion/udp v0.1.0
 	github.com/prometheus/client_golang v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20201112155050-0c6587e931a9
-	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68
+	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392
+	golang.org/x/sys v0.0.0-20201126233918-771906719818
 	google.golang.org/grpc v1.33.2
 	k8s.io/api v0.19.4
 	k8s.io/apimachinery v0.19.4
@@ -22,12 +22,12 @@ require (
 )
 
 require (
-	go.opentelemetry.io/otel v0.13.0
-	go.opentelemetry.io/otel/exporters/metric/prometheus v0.13.0
-	go.opentelemetry.io/otel/exporters/otlp v0.13.0
-	go.opentelemetry.io/otel/exporters/trace/jaeger v0.13.0
-	go.opentelemetry.io/otel/exporters/trace/zipkin v0.13.0
-	go.opentelemetry.io/otel/sdk v0.13.0
+	go.opentelemetry.io/otel v0.14.0
+	go.opentelemetry.io/otel/exporters/metric/prometheus v0.14.0
+	go.opentelemetry.io/otel/exporters/otlp v0.14.0
+	go.opentelemetry.io/otel/exporters/trace/jaeger v0.14.0
+	go.opentelemetry.io/otel/exporters/trace/zipkin v0.14.0
+	go.opentelemetry.io/otel/sdk v0.14.0
 )
 
 replace github.com/creack/pty => github.com/jeffreystoke/pty v1.1.12-0.20201126201855-c1c1e24408f9

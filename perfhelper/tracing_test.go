@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	otapitrace "go.opentelemetry.io/otel/api/trace"
+	otapitrace "go.opentelemetry.io/otel/trace"
 )
 
 func TestTracingConfig_CreateIfEnabled(t *testing.T) {

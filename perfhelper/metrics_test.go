@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	otapimetric "go.opentelemetry.io/otel/api/metric"
+	otapimetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/unit"
 )
 
