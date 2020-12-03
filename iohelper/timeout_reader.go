@@ -17,18 +17,12 @@ limitations under the License.
 package iohelper
 
 import (
-	"bufio"
 	"io"
 	"runtime"
 	"sync/atomic"
+	"syscall"
 	"time"
 )
-
-type bufferedReader interface {
-	io.Reader
-	io.ByteReader
-	Buffered() int
-}
 
 // NewTimeoutReader creates a new idle timeout reader from a blocking reader
 func NewTimeoutReader(r io.Reader) *TimeoutReader {
@@ -164,6 +158,29 @@ func (t *TimeoutReader) doExclusive(f func()) {
 	atomic.StoreUint32(&t._working, 0)
 }
 
+type bufferedReader interface {
+	io.Reader
+	Buffered() int
+}
+
+type bufferedFdReader struct {
+	fd uintptr
+	io.Reader
+}
+
+func (r *bufferedFdReader) Buffered() int {
+	n, _ := CheckBytesToRead(r.fd)
+	return n
+}
+
+type fakeBufferedReader struct {
+	io.Reader
+}
+
+func (r *fakeBufferedReader) Buffered() int {
+	return 0
+}
+
 // FallbackReading is a helper routine for data reading/waiting
 // for readers with SetReadDeadline support, it is used for waiting until data prepared (WaitForData)
 // for other readers without SetReadDeadline, it is in (buffered) one byte read mode (WaitForData and Read)
@@ -173,12 +190,12 @@ func (t *TimeoutReader) doExclusive(f func()) {
 // directly unless you are sure it is not read
 //
 // NOTE: this function MUST be called exactly once
+// nolint:gocyclo
 func (t *TimeoutReader) FallbackReading(stopSig <-chan struct{}) {
 	var (
-		n           int
-		err         error
-		initialByte byte
-		oneByteBuf  [1]byte
+		n          int
+		err        error
+		oneByteBuf [1]byte
 	)
 
 loop:
@@ -235,21 +252,58 @@ loop:
 
 	br, isBufferedReader := t.r.(bufferedReader)
 	if !isBufferedReader {
-		br = bufio.NewReader(t.r)
+
+		var (
+			fd    uintptr
+			hasFd = false
+		)
+		switch r := t.r.(type) {
+		case interface{ Fd() uintptr }:
+			fd = r.Fd()
+
+			// test if syscall supported
+			_, err = CheckBytesToRead(fd)
+			hasFd = err == nil
+		case interface {
+			SyscallConn() (syscall.RawConn, error)
+		}:
+			var (
+				rawConn syscall.RawConn
+			)
+			rawConn, err = r.SyscallConn()
+			if err != nil {
+				break
+			}
+
+			err = rawConn.Control(func(_fd uintptr) {
+				fd = _fd
+			})
+			if err != nil {
+				break
+			}
+
+			// test if syscall supported
+			_, err = CheckBytesToRead(fd)
+			hasFd = err == nil
+		}
+
+		if hasFd {
+			br = &bufferedFdReader{
+				fd:     fd,
+				Reader: t.r,
+			}
+		} else {
+			// use of ReadByte() of bufio.Reader can cause unexpected block due to its fill() function call
+			// so we actually can not use any buffering feature from bufio.Reader
+			br = &fakeBufferedReader{
+				Reader: t.r,
+			}
+		}
 	}
 
 	for {
-		if br.Buffered() == 0 {
-			// no data buffered, read one byte to avoid being blocked
-			n, err = br.Read(oneByteBuf[:])
-			initialByte = oneByteBuf[0]
-		} else {
-			// has data buffered
-			initialByte, err = br.ReadByte()
-			if err != nil {
-				n = 0
-			}
-		}
+		// read one byte to avoid being blocked
+		n, err = br.Read(oneByteBuf[:])
 		if err != nil {
 			t.err.Store(err)
 
@@ -271,7 +325,7 @@ loop:
 		// avoid unexpected access to t.buf
 		t.doExclusive(func() {
 			// rely on the default slice grow
-			t.buf = append(t.buf, initialByte)
+			t.buf = append(t.buf, oneByteBuf[0])
 
 			// read all buffered data
 			start := len(t.buf)
