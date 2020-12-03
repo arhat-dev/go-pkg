@@ -239,8 +239,17 @@ loop:
 	}
 
 	for {
-		// read one byte a time to avoid being blocked
-		initialByte, err = br.ReadByte()
+		if br.Buffered() == 0 {
+			// no data buffered, read one byte to avoid being blocked
+			n, err = br.Read(oneByteBuf[:])
+			initialByte = oneByteBuf[0]
+		} else {
+			// has data buffered
+			initialByte, err = br.ReadByte()
+			if err != nil {
+				n = 0
+			}
+		}
 		if err != nil {
 			t.err.Store(err)
 
@@ -252,7 +261,11 @@ loop:
 					close(t.hasData)
 				}
 			})
-			return
+
+			if n == 0 {
+				// no data can be read anymore
+				return
+			}
 		}
 
 		// avoid unexpected access to t.buf
@@ -264,27 +277,6 @@ loop:
 			start := len(t.buf)
 			n = br.Buffered()
 			end := start + n
-
-			if n > 0 {
-				if c := cap(t.buf); c < end {
-					// grow slice for reading buffered data
-					buf := make([]byte, end, 2*c+n)
-					_ = copy(buf, t.buf)
-					t.buf = buf
-				}
-
-				// usually should read end-start bytes, record n just in case
-				n, err = br.Read(t.buf[start:end])
-				if err != nil {
-					t.err.Store(err)
-					// usually should not happen since has been buffered
-					//
-					// do not return here since we wiil check error outside
-				}
-
-				end = start + n
-				t.buf = t.buf[:end]
-			}
 
 			// notify read wait
 			select {
@@ -301,6 +293,29 @@ loop:
 					close(t.dataFull)
 				}
 			}
+
+			if n == 0 {
+				return
+			}
+
+			if c := cap(t.buf); c < end {
+				// grow slice for reading buffered data
+				buf := make([]byte, end, 2*c+n)
+				_ = copy(buf, t.buf)
+				t.buf = buf
+			}
+
+			// usually should read end-start bytes, record n just in case
+			n, err = br.Read(t.buf[start:end])
+			if err != nil {
+				t.err.Store(err)
+				// usually should not happen since has been buffered
+				//
+				// do not return here since we wiil check error outside
+			}
+
+			end = start + n
+			t.buf = t.buf[:end]
 		})
 
 		if err != nil {
