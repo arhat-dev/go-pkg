@@ -277,8 +277,11 @@ loop:
 			if err != nil {
 				t.err.Store(err)
 				// usually should not happen, do not return here since we
+				// wiil check error outside
 			}
-			t.buf = t.buf[:start+n]
+
+			end = start + n
+			t.buf = t.buf[:end]
 
 			// notify read wait
 			select {
@@ -288,7 +291,7 @@ loop:
 			}
 
 			// notify data full
-			if start+n >= t.maxRead {
+			if end >= t.maxRead {
 				select {
 				case <-t.dataFull:
 				default:
