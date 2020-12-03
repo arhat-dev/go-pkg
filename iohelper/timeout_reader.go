@@ -339,16 +339,15 @@ loop:
 				close(t.hasData)
 			}
 
-			// notify data full
-			if end >= t.maxRead {
-				select {
-				case <-t.dataFull:
-				default:
-					close(t.dataFull)
-				}
-			}
-
 			if n == 0 {
+				// notify data full
+				if end >= t.maxRead {
+					select {
+					case <-t.dataFull:
+					default:
+						close(t.dataFull)
+					}
+				}
 				return
 			}
 
@@ -370,6 +369,15 @@ loop:
 
 			end = start + n
 			t.buf = t.buf[:end]
+
+			// notify data full
+			if end >= t.maxRead {
+				select {
+				case <-t.dataFull:
+				default:
+					close(t.dataFull)
+				}
+			}
 		})
 
 		if err != nil {
