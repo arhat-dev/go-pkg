@@ -265,23 +265,26 @@ loop:
 			n = br.Buffered()
 			end := start + n
 
-			if c := cap(t.buf); c < end {
-				// grow slice for reading buffered data
-				buf := make([]byte, end, 2*c+n)
-				_ = copy(buf, t.buf)
-				t.buf = buf
-			}
+			if n > 0 {
+				if c := cap(t.buf); c < end {
+					// grow slice for reading buffered data
+					buf := make([]byte, end, 2*c+n)
+					_ = copy(buf, t.buf)
+					t.buf = buf
+				}
 
-			// usually should read end-start bytes, record n just in case
-			n, err = br.Read(t.buf[start:end])
-			if err != nil {
-				t.err.Store(err)
-				// usually should not happen, do not return here since we
-				// wiil check error outside
-			}
+				// usually should read end-start bytes, record n just in case
+				n, err = br.Read(t.buf[start:end])
+				if err != nil {
+					t.err.Store(err)
+					// usually should not happen since has been buffered
+					//
+					// do not return here since we wiil check error outside
+				}
 
-			end = start + n
-			t.buf = t.buf[:end]
+				end = start + n
+				t.buf = t.buf[:end]
+			}
 
 			// notify read wait
 			select {
