@@ -168,33 +168,22 @@ func TestTimeoutReader_Read(t *testing.T) {
 		count := 0
 		for tr.WaitForData(context.TODO().Done()) {
 			data, _, err := tr.Read(time.Second, buf[0:])
-			if err == iohelper.ErrDeadlineExceeded && len(data) == 0 {
+			if err != nil && err != iohelper.ErrDeadlineExceeded {
 				continue
 			}
 
 			count++
-			if count == 6 {
-				assert.Error(t, err)
+			if runtime.GOOS == "windows" {
+				assert.Equal(t, err, iohelper.ErrDeadlineExceeded)
 			} else {
-				if runtime.GOOS == "windows" {
-					assert.Equal(t, err, iohelper.ErrDeadlineExceeded)
-				} else {
-					assert.NoError(t, err, "failed to read test data")
-				}
-
-				assert.EqualValues(t, testData, string(data))
-				assert.Greater(t, len(data), 0)
+				assert.NoError(t, err, "failed to read test data")
 			}
+
+			assert.EqualValues(t, testData, string(data))
+			assert.Greater(t, len(data), 0)
 		}
 
 		assert.EqualValues(t, 5, count)
-		//if runtime.GOOS == "windows" {
-		//	// on windows, it will fallback to one byte read mode
-		//	// so we actually can do exactly 5 wait
-		//
-		//} else {
-		//	assert.EqualValues(t, 6, count)
-		//}
 	})
 }
 
