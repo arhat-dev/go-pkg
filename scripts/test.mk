@@ -80,6 +80,6 @@ test.build:
 	go tool dist list | xargs -Ipair \
 	sh -c '\
 		CGO_ENABLED=false \
-		GOOS=$(echo pair | cut -d/ -f1) \
-		GOARCH=$(echo pair | cut -d/ -f2) \
+		GOOS=$$(echo pair | cut -d/ -f1) \
+		GOARCH=$$(echo pair | cut -d/ -f2) \
 		echo "Building pair" && go build ./...'
