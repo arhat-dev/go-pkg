@@ -6,7 +6,9 @@ on:
     types:
     - rerequested
     - requested_action
-  pull_request: {}
+  pull_request:
+    branches:
+    - master
   push:
     branches:
     - master
@@ -33,13 +35,27 @@ jobs:
     - name: Install Go
       uses: actions/setup-go@v2
       with:
-        go-version: ${{ matrix.go }}
+        go-version: 1.15.x
+
+    - name: Ensure tidy gomod
+      run: |
+        go mod download -x
+        go mod tidy
+        if ! git diff --exit-code
+        then
+          echo "go mod not tidy"
+          exit 1
+        fi
+
+    - name: Lint
+      run: |
+        make lint.all
 
     - name: Test multi-platform build
       run: |
         make test.build
 
-  unit-test:
+  check:
     if: contains(github.head_ref, 'deps/') == false
     runs-on: ${{ matrix.os }}
     strategy:
@@ -60,21 +76,6 @@ jobs:
       with:
         go-version: ${{ matrix.go }}
 
-    - name: Ensure tidy gomod
-      run: |
-        go mod download -x
-        go mod tidy
-        if ! git diff --exit-code
-        then
-          echo "go mod not tidy"
-          exit 1
-        fi
-
-    - name: Lint
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        make lint.all
-
     - name: Unit Tests
       run: |
         make test.unit
@@ -88,3 +89,19 @@ jobs:
       # with:
       #   token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
       #   fail_ci_if_error: true # optional (default = false)
+
+  # fuzz:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v2
+
+  #   - name: Install Go
+  #     uses: actions/setup-go@v2
+  #     with:
+  #       # there are some issues for fuzz test with go1.15
+  #       go-version: 1.14.x
+
+  #   - name: Fuzz Tests
+  #     run: |
+  #       make install.fuzz
+  #       make test.fuzz
