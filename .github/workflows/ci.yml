@@ -25,6 +25,20 @@ defaults:
     shell: bash
 
 jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Test multi-platform build
+      run: |
+        make test.build
+
   unit-test:
     if: contains(github.head_ref, 'deps/') == false
     runs-on: ${{ matrix.os }}
