@@ -65,7 +65,7 @@ func (q *SeqQueue) handleExpectedNext(seq, max uint64, data interface{}) bool {
 	q.handleData(seq, data)
 
 	for seq++; ; seq++ {
-		v, ok := q.m.LoadAndDelete(seq)
+		v, ok := q.m.Load(seq)
 		if !ok {
 			break
 		}
@@ -73,6 +73,8 @@ func (q *SeqQueue) handleExpectedNext(seq, max uint64, data interface{}) bool {
 		if !atomic.CompareAndSwapUint64(&q.next, seq, seq+1) {
 			break
 		}
+
+		q.m.Delete(seq)
 
 		q.handleData(seq, v)
 	}
