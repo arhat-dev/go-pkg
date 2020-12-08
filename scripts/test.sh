@@ -20,7 +20,7 @@ unit() {
   pkg="$1"
 
   GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) CGO_ENABLED=1 \
-    go test -mod=readonly -v -race -failfast -covermode=atomic \
+    go test -mod=readonly -v -race -failfast -cpu 4 -covermode=atomic \
     -coverprofile "coverage.${pkg}.txt" -coverpkg "./..." "./${pkg}"
 }
 
