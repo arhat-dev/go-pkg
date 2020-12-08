@@ -25,7 +25,7 @@ import (
 
 func BenchmarkSeqQueue_BestCase(b *testing.B) {
 	n := uint64(b.N)
-	q := NewSeqQueue()
+	q := NewSeqQueue(func(seq uint64, d interface{}) {})
 	q.SetMaxSeq(n)
 
 	b.ResetTimer()
@@ -34,41 +34,38 @@ func BenchmarkSeqQueue_BestCase(b *testing.B) {
 	}
 }
 
-// func BenchmarkSeqQueue_WorstCase(b *testing.B) {
-// 	n := uint64(b.N)
-// 	q := NewSeqQueue()
-// 	q.SetMaxSeq(n)
-// 	q.Offer(0, 0)
+func BenchmarkSeqQueue_WorstCase(b *testing.B) {
+	n := uint64(b.N)
+	q := NewSeqQueue(func(seq uint64, d interface{}) {})
+	q.SetMaxSeq(n)
+	q.Offer(0, 0)
 
-// 	b.ResetTimer()
-// 	for i := n; i > 0; i-- {
-// 		q.Offer(i, 0)
-// 	}
-// }
+	b.ResetTimer()
+	for i := n; i > 0; i-- {
+		q.Offer(i, 0)
+	}
+}
 
 func TestSeqQueue(t *testing.T) {
 	const MaxSeq = 100
 
-	var (
-		sequentialSerial []uint64
-		reversedSerial   []uint64
-	)
-	for i := 0; i <= MaxSeq; i++ {
-		sequentialSerial = append(sequentialSerial, uint64(i))
-	}
-	for i := MaxSeq; i >= 0; i-- {
-		reversedSerial = append(reversedSerial, uint64(i))
-	}
-
 	t.Run("Sequential One Out Per Offer", func(t *testing.T) {
-		q := NewSeqQueue()
+		var sequentialSerial []uint64
+		for i := 0; i <= MaxSeq; i++ {
+			sequentialSerial = append(sequentialSerial, uint64(i))
+		}
+
+		var data []interface{}
+		q := NewSeqQueue(func(seq uint64, d interface{}) {
+			data = append(data, d)
+		})
 		q.SetMaxSeq(MaxSeq)
 
 		for idx, i := range sequentialSerial {
-			data, complete := q.Offer(i, i)
+			complete := q.Offer(i, i)
 
-			assert.Len(t, data, 1)
-			assert.Equal(t, i, data[0].(uint64))
+			assert.Len(t, data, idx+1)
+			assert.Equal(t, i, data[idx].(uint64))
 
 			if idx == len(sequentialSerial)-1 {
 				assert.True(t, complete)
@@ -79,12 +76,20 @@ func TestSeqQueue(t *testing.T) {
 	})
 
 	t.Run("Reversed No Data Until Last", func(t *testing.T) {
-		q := NewSeqQueue()
+		var reversedSerial []uint64
+		for i := MaxSeq; i >= 0; i-- {
+			reversedSerial = append(reversedSerial, uint64(i))
+		}
+
+		var data []interface{}
+		q := NewSeqQueue(func(seq uint64, d interface{}) {
+			data = append(data, d)
+		})
+
 		q.SetMaxSeq(MaxSeq)
 
 		for idx, i := range reversedSerial {
-			data, complete := q.Offer(i, i)
-
+			complete := q.Offer(i, i)
 			if idx == len(reversedSerial)-1 {
 				assert.Len(t, data, MaxSeq+1)
 				assert.True(t, complete)
@@ -96,30 +101,35 @@ func TestSeqQueue(t *testing.T) {
 	})
 
 	t.Run("Only One Seq Data", func(t *testing.T) {
-		q := NewSeqQueue()
+		q := NewSeqQueue(func(seq uint64, d interface{}) {})
 
-		_, complete := q.Offer(0, 0)
+		complete := q.Offer(0, 0)
 		assert.False(t, complete)
 		assert.True(t, q.SetMaxSeq(0))
 
-		q = NewSeqQueue()
+		q = NewSeqQueue(func(seq uint64, d interface{}) {})
 		assert.False(t, q.SetMaxSeq(0))
-		_, complete = q.Offer(0, 0)
+		complete = q.Offer(0, 0)
 		assert.True(t, complete)
 	})
 
-	t.Run("Duplicated Data", func(t *testing.T) {
-		q := NewSeqQueue()
+	t.Run("Duplicate Data", func(t *testing.T) {
+		var data []interface{}
+		q := NewSeqQueue(func(seq uint64, d interface{}) {
+			data = append(data, d)
+		})
+
 		for i := 0; i < MaxSeq; i++ {
-			data, complete := q.Offer(uint64(i), i)
-			assert.Equal(t, 1, len(data))
-			assert.Equal(t, i, data[0].(int))
+			complete := q.Offer(uint64(i), i)
+			assert.Len(t, data, i+1)
+			assert.Equal(t, i, data[i].(int))
 			assert.False(t, complete)
 		}
 
+		size := len(data)
 		for i := 0; i < MaxSeq; i++ {
-			data, complete := q.Offer(0, 0)
-			assert.Len(t, data, 0)
+			complete := q.Offer(0, 0)
+			assert.Len(t, data, size)
 			assert.False(t, complete)
 		}
 
@@ -127,28 +137,52 @@ func TestSeqQueue(t *testing.T) {
 		assert.True(t, q.SetMaxSeq(MaxSeq-1))
 	})
 
-	t.Run("Random sequence", func(t *testing.T) {
-		rand.Shuffle(len(reversedSerial), func(i, j int) {
-			reversedSerial[i], reversedSerial[j] = reversedSerial[j], reversedSerial[i]
+	t.Run("Random Concurrent Duplicate Sequence", func(t *testing.T) {
+		const (
+			serialLen = 10000
+			workers   = 100
+		)
+		var result []uint64
+
+		finished := make(chan struct{})
+		q := NewSeqQueue(func(seq uint64, d interface{}) {
+			result = append(result, d.(uint64))
+
+			if seq == serialLen {
+				close(finished)
+			}
 		})
 
-		q := NewSeqQueue()
-		q.SetMaxSeq(MaxSeq)
+		start := make(chan struct{})
+		for i := 0; i < workers; i++ {
+			go func() {
+				var serial []uint64
+				for i := serialLen; i >= 0; i-- {
+					serial = append(serial, uint64(i))
+				}
 
-		var result []uint64
-		for idx, i := range reversedSerial {
-			data, complete := q.Offer(i, i)
-			for _, d := range data {
-				result = append(result, d.(uint64))
-			}
+				rand.Shuffle(len(serial), func(i, j int) {
+					serial[i], serial[j] = serial[j], serial[i]
+				})
 
-			if idx == len(reversedSerial)-1 {
-				assert.True(t, complete)
-			} else {
-				assert.False(t, complete)
-			}
+				<-start
+
+				for _, i := range serial {
+					_ = q.Offer(i, i)
+				}
+			}()
 		}
 
-		assert.EqualValues(t, sequentialSerial, result)
+		q.SetMaxSeq(serialLen)
+		close(start)
+
+		var expected []uint64
+		for i := 0; i <= serialLen; i++ {
+			expected = append(expected, uint64(i))
+		}
+
+		<-finished
+
+		assert.EqualValues(t, expected, result)
 	})
 }
