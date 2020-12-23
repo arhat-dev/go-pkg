@@ -79,10 +79,11 @@ func TestPProfConfig_CreateHTTPHandlerIfEnabled(t *testing.T) {
 	}
 
 	config := &PProfConfig{
-		Enabled: true,
+		Enabled:            true,
+		ApplyProfileConfig: true,
 	}
 
-	h := config.CreateHTTPHandlersIfEnabled(true)
+	h := config.CreateHTTPHandlersIfEnabled()
 	if !assert.NotNil(t, h) {
 		return
 	}
