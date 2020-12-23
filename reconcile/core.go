@@ -71,6 +71,7 @@ type Core struct {
 	workingOn *sync.Map
 }
 
+// Start handling of delayed jobs
 func (c *Core) Start() error {
 	c.scheduleQ.Start(c.ctx.Done())
 
@@ -88,7 +89,14 @@ func (c *Core) Start() error {
 	return nil
 }
 
-func (c *Core) ReconcileUntil(stop <-chan struct{}) {
+// Reconcile jobs until stop released
+func (c *Core) Reconcile(stop <-chan struct{}) {
+	select {
+	case <-c.ctx.Done():
+		return
+	default:
+	}
+
 	wg := new(sync.WaitGroup)
 
 	c.jobQ.Resume()
@@ -163,9 +171,6 @@ func (c *Core) ReconcileUntil(stop <-chan struct{}) {
 }
 
 func (c *Core) Schedule(job queue.Job, delay time.Duration) error {
-	// make best effort to ensure all on going jobs are unique
-	_ = c.CancelSchedule(job)
-
 	if delay == 0 {
 		err := c.jobQ.Offer(job)
 		if err != nil && !errors.Is(err, queue.ErrJobDuplicated) {
