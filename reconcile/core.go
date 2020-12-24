@@ -241,12 +241,13 @@ func (c *Core) handleJob(job queue.Job) {
 		return
 	}
 
-	c.workingOn.Delete(job)
 	if result == nil {
+		c.workingOn.Delete(job)
 		return
 	}
 
 handleResult:
+	c.workingOn.Delete(job)
 	nA := result.NextAction
 	delay := result.ScheduleAfter
 	if result.Err != nil {
