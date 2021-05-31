@@ -33,7 +33,7 @@ require (
 	go.opentelemetry.io/otel/trace v0.20.0
 )
 
-replace github.com/creack/pty => github.com/jeffreystoke/pty v1.1.12-0.20201126201855-c1c1e24408f9
+replace github.com/creack/pty => github.com/jeffreystoke/pty v1.1.12-0.20210531091229-b834701fbcc6
 
 replace (
 	k8s.io/api => k8s.io/api v0.20.7
