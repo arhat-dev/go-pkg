@@ -16,7 +16,7 @@ limitations under the License.
 
 package iohelper
 
-// nolint:golint
 const (
+	// nolint:revive
 	_FIONREAD = 0x541B
 )
