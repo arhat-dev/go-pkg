@@ -40,6 +40,7 @@ type Spec struct {
 	Tty bool
 }
 
+// Error code for non exec error
 const (
 	DefaultExitCodeOnError = 128
 )

@@ -20,6 +20,7 @@ package nethelper
 
 import "errors"
 
+// Common network errors
 var (
 	ErrDialerInvalid       = errors.New("invalid dialer")
 	ErrTLSConfigInvalid    = errors.New("invalid tls config")

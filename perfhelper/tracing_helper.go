@@ -88,9 +88,9 @@ func (c *TracingConfig) CreateIfEnabled(setGlobal bool, client *http.Client) (ot
 		var endpoint otexporterjaeger.EndpointOption
 		switch c.EndpointType {
 		case "agent":
-			host, port, err := net.SplitHostPort(c.Endpoint)
-			if err != nil {
-				return nil, fmt.Errorf("invalid jaeger agent endpoint: %w", err)
+			host, port, err2 := net.SplitHostPort(c.Endpoint)
+			if err2 != nil {
+				return nil, fmt.Errorf("invalid jaeger agent endpoint: %w", err2)
 			}
 
 			endpoint = otexporterjaeger.WithAgentEndpoint(

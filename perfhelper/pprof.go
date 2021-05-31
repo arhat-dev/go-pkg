@@ -22,6 +22,7 @@ import (
 	"arhat.dev/pkg/tlshelper"
 )
 
+// PProfConfig for golang http pprof
 // nolint:maligned
 type PProfConfig struct {
 	Enabled  bool   `json:"enabled" yaml:"enabled"`
