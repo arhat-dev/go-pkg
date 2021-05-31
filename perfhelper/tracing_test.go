@@ -59,7 +59,7 @@ func TestTracingConfig_CreateIfEnabled(t *testing.T) {
 			assert.NotNil(t, p)
 
 			m := p.Tracer("test")
-			ctx, span := m.Start(context.Background(), "test", otapitrace.WithRecord())
+			ctx, span := m.Start(context.Background(), "test")
 			_ = ctx
 			span.End(otapitrace.WithLinks())
 		})
