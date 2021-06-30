@@ -4,16 +4,16 @@ go 1.16
 
 require (
 	github.com/Microsoft/go-winio v0.5.0
-	github.com/creack/pty v1.1.11
-	github.com/itchyny/gojq v0.12.3
+	github.com/creack/pty v1.1.13
+	github.com/itchyny/gojq v0.12.4
 	github.com/pion/dtls/v2 v2.0.9
 	github.com/pion/udp v0.1.1
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
-	go.uber.org/zap v1.17.0
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
-	golang.org/x/sys v0.0.0-20210525143221-35b2ab0089ea
+	go.uber.org/zap v1.18.1
+	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
+	golang.org/x/sys v0.0.0-20210629170331-7dc0b73dc9fb
 	google.golang.org/grpc v1.37.0
 	k8s.io/api v0.20.7
 	k8s.io/apimachinery v0.20.7
@@ -31,6 +31,8 @@ require (
 	go.opentelemetry.io/otel/sdk v0.20.0
 	go.opentelemetry.io/otel/sdk/metric v0.20.0
 	go.opentelemetry.io/otel/trace v0.20.0
+	go.uber.org/atomic v1.8.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
 )
 
 replace github.com/creack/pty => github.com/jeffreystoke/pty v1.1.12-0.20210531091229-b834701fbcc6
